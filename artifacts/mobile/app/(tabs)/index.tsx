@@ -251,7 +251,7 @@ export default function AccueilScreen() {
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   headerTop: {
     flexDirection: "row",
@@ -297,14 +297,14 @@ const styles = StyleSheet.create({
   },
   // Carousel
   carouselWrapper: {
-    marginTop: 16,
+    marginTop: 12,
     paddingHorizontal: 20,
     gap: 10,
   },
   carouselCard: {
-    borderRadius: 20,
+    borderRadius: 12,
     overflow: "hidden",
-    height: 200,
+    height: 168,
   },
   carouselImage: {
     width: "100%",
@@ -322,9 +322,9 @@ const styles = StyleSheet.create({
   },
   // Sections
   sectionBlock: {
-    marginTop: 10,
-    gap: 14,
-    paddingVertical: 18,
+    marginTop: 6,
+    gap: 12,
+    paddingVertical: 12,
     paddingLeft: 20,
   },
   sectionHeaderRow: {
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: "Inter_700Bold",
-    fontSize: 18,
+    fontSize: 16,
   },
   seeAll: {
     fontFamily: "Inter_500Medium",
@@ -343,8 +343,8 @@ const styles = StyleSheet.create({
   },
   proBanner: {
     marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 20,
+    marginTop: 6,
+    borderRadius: 12,
     padding: 18,
     flexDirection: "row",
     alignItems: "center",

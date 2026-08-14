@@ -106,7 +106,7 @@ export function GarageCard({ garage, onToggleFavorite }: GarageCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 12,
     // NOTE: overflow:"hidden" is intentionally NOT here — on Android, combining
     // overflow:"hidden" with elevation on the same View breaks child rendering.
     // The imageWrap below handles top-corner clipping; the content area never overflows.
@@ -121,12 +121,12 @@ const styles = StyleSheet.create({
     width: "100%",
     overflow: "hidden",
     // Round only the top corners to match the card — no elevation here so clipping works on Android.
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   image: {
     width: "100%",
-    height: 150,
+    height: 118,
   },
   imagePlaceholder: {
     alignItems: "center",
@@ -158,12 +158,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: 14,
+    padding: 12,
     gap: 5,
   },
   name: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
+    fontSize: 14,
     ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
   },
   row: {

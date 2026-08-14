@@ -789,7 +789,7 @@ const S = StyleSheet.create({
     ...a,
   },
   btn: {
-    backgroundColor: "#1D7159",
+    backgroundColor: "#087A63",
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 32,
@@ -1018,7 +1018,7 @@ const S = StyleSheet.create({
   },
 
   payCta: {
-    backgroundColor: "#1D7159",
+    backgroundColor: "#087A63",
     borderRadius: 18,
     paddingVertical: 18,
     flexDirection: "row",

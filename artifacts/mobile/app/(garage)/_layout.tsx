@@ -29,7 +29,7 @@ const LIGHT_G = {
   card:    "#FFFFFF",
   card2:   "#EBEBF0",
   border:  "#E5E5EA",
-  green:   "#1D7159",
+  green:   "#087A63",
   greenBg: "rgba(29,113,89,0.1)",
   text:    "#1C1C1E",
   sub:     "#3C3C43",
