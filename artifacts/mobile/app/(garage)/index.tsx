@@ -552,17 +552,17 @@ function makeStyles(G: GarageTheme) {
       paddingHorizontal: 2,
     },
 
-    container: { padding: 14, gap: 10 },
+    container: { padding: 16, gap: 12 },
 
     welcomeCard: {
       backgroundColor: G.card,
-      borderRadius: 12,
-      padding: 16,
+      borderRadius: 16,
+      padding: 20,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: G.border,
     },
     welcomeHello: { fontFamily: "Inter_400Regular", fontSize: 16, color: G.sub },
-    welcomeName: { fontFamily: "Inter_700Bold", fontSize: 21, color: G.text, marginTop: 2 },
+    welcomeName: { fontFamily: "Inter_700Bold", fontSize: 24, color: G.text, marginTop: 2 },
     welcomeSub: { fontFamily: "Inter_400Regular", fontSize: 13, color: G.muted, marginTop: 6 },
 
     statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
@@ -570,10 +570,10 @@ function makeStyles(G: GarageTheme) {
       flex: 1,
       minWidth: "45%",
       backgroundColor: G.card,
-      borderRadius: 12,
+      borderRadius: 16,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: G.border,
-      padding: 13,
+      padding: 16,
     },
     statLabel: { fontFamily: "Inter_400Regular", fontSize: 12, color: G.muted },
     statValue: { fontFamily: "Inter_700Bold", fontSize: 28, color: G.text },
@@ -582,7 +582,7 @@ function makeStyles(G: GarageTheme) {
 
     sCard: {
       backgroundColor: G.card,
-      borderRadius: 12,
+      borderRadius: 16,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: G.border,
       overflow: "hidden",
@@ -590,8 +590,8 @@ function makeStyles(G: GarageTheme) {
     sHeader: {
       flexDirection: "row",
       alignItems: "center",
-      padding: 13,
-      gap: 10,
+      padding: 16,
+      gap: 12,
     },
     sIconBox: {
       width: 34,
@@ -603,8 +603,8 @@ function makeStyles(G: GarageTheme) {
     },
     sTitle: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 14, color: G.text },
     sBody: {
-      paddingHorizontal: 13,
-      paddingBottom: 13,
+      paddingHorizontal: 16,
+      paddingBottom: 16,
       gap: 12,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: G.border,
