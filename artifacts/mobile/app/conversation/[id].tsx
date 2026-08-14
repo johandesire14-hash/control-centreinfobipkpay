@@ -172,7 +172,7 @@ export default function ConversationScreen() {
           {
             icon: <FileText size={26} color="#FFFFFF" />,
             label: "Créer une facture",
-            color: "#087A63",
+            color: "#1D7159",
             onPress: () => router.push({ pathname: "/(garage)/invoice" }),
           } satisfies AttachItem,
         ]

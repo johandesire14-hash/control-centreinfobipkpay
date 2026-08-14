@@ -8,7 +8,7 @@ const colors = {
   light: {
     // Legacy aliases
     text: "#1C1C1E",
-    tint: "#087A63",
+    tint: "#1D7159",
 
     // Core surfaces
     background: "#F2F3F5",
@@ -19,7 +19,7 @@ const colors = {
     cardForeground: "#1C1C1E",
 
     // Primary action color (buttons, links, active states)
-    primary: "#087A63",
+    primary: "#1D7159",
     primaryForeground: "#FFFFFF",
 
     // Secondary / less-emphasis interactive surfaces
@@ -43,7 +43,7 @@ const colors = {
     input: "#EBEBF0",
 
     // Extra semantic tokens
-    success: "#087A63",
+    success: "#1D7159",
     warning: "#E4B93A",
 
     // Tab bar (dark floating pill)
@@ -54,12 +54,12 @@ const colors = {
 
   dark: {
     text: "#FFFFFF",
-    tint: "#35A987",
+    tint: "#34a17a",
     background: "#0A0A0A",
     foreground: "#FFFFFF",
     card: "#1C1C1E",
     cardForeground: "#FFFFFF",
-    primary: "#35A987",
+    primary: "#34a17a",
     primaryForeground: "#0A0A0A",
     secondary: "#2C2C2E",
     secondaryForeground: "#FFFFFF",
@@ -71,15 +71,15 @@ const colors = {
     destructiveForeground: "#FFFFFF",
     border: "#38383A",
     input: "#2C2C2E",
-    success: "#35A987",
+    success: "#34a17a",
     warning: "#E4B93A",
     tabBar: "#1C1C1E",
     tabBarActive: "#FFFFFF",
     tabBarInactive: "#636366",
   },
 
-  radius: 16,
-  radiusSm: 10,
+  radius: 20,
+  radiusSm: 14,
 };
 
 export default colors;

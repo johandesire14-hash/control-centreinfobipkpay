@@ -160,7 +160,7 @@ export default function MonEspaceScreen() {
             await AsyncStorage.setItem("user_active_mode", "PRO");
             router.replace("/(garage)");
           }}
-          style={[styles.dashboardCard, { backgroundColor: "#087A63" }]}
+          style={[styles.dashboardCard, { backgroundColor: "#1D7159" }]}
         >
           <View style={[styles.dashboardIcon, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
             <Wrench size={20} color="#FFFFFF" />
@@ -176,7 +176,7 @@ export default function MonEspaceScreen() {
       ) : (
         <Pressable
           onPress={() => router.push("/onboarding/garage")}
-          style={[styles.dashboardCard, { backgroundColor: "#087A63" }]}
+          style={[styles.dashboardCard, { backgroundColor: "#1D7159" }]}
         >
           <View style={[styles.dashboardIcon, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
             <Wrench size={20} color="#FFFFFF" />

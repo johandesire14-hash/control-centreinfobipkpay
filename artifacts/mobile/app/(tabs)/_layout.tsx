@@ -22,7 +22,7 @@ const DARK = {
 const LIGHT = {
   bg:     "#F2F3F5",
   border: "#E5E5EA",
-  green:  "#087A63",
+  green:  "#1D7159",
   muted:  "#8E8E93",
 };
 
