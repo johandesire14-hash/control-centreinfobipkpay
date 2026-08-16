@@ -1,4 +1,3 @@
-import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import type { LucideIcon } from "lucide-react-native";
 import { Home, Search, MessageCircle, User } from "lucide-react-native";
@@ -82,7 +81,7 @@ export default function TabLayout() {
         tabBarLabelStyle: { fontFamily: "Inter_500Medium", fontSize: 10, marginTop: 2 },
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : G.bg,
+          backgroundColor: G.bg,
           borderTopColor: G.border,
           borderTopWidth: StyleSheet.hairlineWidth,
           elevation: 0,
@@ -90,16 +89,9 @@ export default function TabLayout() {
           paddingBottom: isIOS ? 28 : 10 + insets.bottom,
           paddingTop: 8,
         },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView
-              intensity={90}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: G.bg }]} />
-          ),
+        tabBarBackground: () => (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: G.bg }]} />
+        ),
       }}
     >
       <Tabs.Screen
