@@ -12,7 +12,6 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
 import { Platform, StatusBar as RNStatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
@@ -132,7 +131,7 @@ export default function RootLayout() {
           <ThemeProvider>
             <AuthProvider>
               <GestureHandlerRootView>
-                <KeyboardProvider>
+                <>
                   <StatusBar style="light" />
                   {Platform.OS === 'android' && (
                     <RNStatusBar translucent backgroundColor="transparent" barStyle="light-content" />
@@ -145,7 +144,7 @@ export default function RootLayout() {
                   {showSplashAnimation && (
                     <AnimatedSplash onFinish={() => setShowSplashAnimation(false)} />
                   )}
-                </KeyboardProvider>
+                </>
               </GestureHandlerRootView>
             </AuthProvider>
           </ThemeProvider>

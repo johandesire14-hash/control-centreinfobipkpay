@@ -1,23 +1,16 @@
-import LottieView from "lottie-react-native";
-import React, { useRef } from "react";
-import { StyleSheet, View } from "react-native";
-
-import splashAnimation from "@/assets/animations/splash.json";
+import React, { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
-  const animationRef = useRef<LottieView>(null);
+  useEffect(() => {
+    const timer = setTimeout(onFinish, 700);
+    return () => clearTimeout(timer);
+  }, [onFinish]);
 
   return (
-    <View style={styles.container}>
-      <LottieView
-        ref={animationRef}
-        source={splashAnimation}
-        autoPlay
-        loop={false}
-        resizeMode="cover"
-        style={styles.animation}
-        onAnimationFinish={onFinish}
-      />
+    <View style={styles.container} pointerEvents="none">
+      <Text style={styles.title}>WapiGarage</Text>
+      <ActivityIndicator size="small" color="#E4B93A" style={styles.spinner} />
     </View>
   );
 }
@@ -30,8 +23,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  animation: {
-    width: "100%",
-    height: "100%",
+  title: {
+    color: "#FFFFFF",
+    fontSize: 30,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  spinner: {
+    marginTop: 18,
   },
 });
