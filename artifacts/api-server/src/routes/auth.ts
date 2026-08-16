@@ -142,6 +142,16 @@ function getSafeMobileRedirect(value: unknown): string | null {
   }
 }
 
+function getDefaultMobileRedirect(): string | null {
+  const environment = process.env.NODE_ENV === "production" ? "production" : process.env.NODE_ENV === "staging" ? "staging" : "development";
+  if (environment === "production") return "wapigarage://auth";
+  const domain = (process.env.REPLIT_EXPO_DEV_DOMAIN ?? "")
+    .replace(/^https?:\/\//, "")
+    .split("/", 1)[0]
+    .toLowerCase();
+  return domain ? `exp://${domain}/--/auth` : null;
+}
+
 interface GoogleUserInfo {
   sub: string;
   email?: string;
@@ -151,7 +161,10 @@ interface GoogleUserInfo {
 }
 
 router.get("/auth/google", rateLimit({ keyPrefix: "oauth-start", windowMs: 10 * 60_000, max: 10 }), (req: Request, res: Response) => {
-  const mobileRedirect = getSafeMobileRedirect(req.query.mobile_redirect);
+  const rawMobileRedirect = req.query.mobile_redirect;
+  const mobileRedirect = typeof rawMobileRedirect === "string" && rawMobileRedirect.length > 0
+    ? getSafeMobileRedirect(rawMobileRedirect)
+    : getDefaultMobileRedirect();
   if (!mobileRedirect) {
     res.status(400).json({ error: "Missing or invalid mobile_redirect parameter" });
     return;
