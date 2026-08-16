@@ -1,11 +1,13 @@
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   GetCurrentAuthUserResponse,
   LogoutMobileSessionResponse,
 } from "@workspace/api-zod";
-import { db, usersTable } from "@workspace/db";
+import { db, oauthExchangeCodesTable, usersTable } from "@workspace/db";
+import { rateLimit } from "../middlewares/rateLimit";
 import {
   getSessionId,
   createSession,
@@ -14,6 +16,7 @@ import {
 } from "../lib/auth";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+const OAUTH_EXCHANGE_TTL = 60 * 1000;
 
 const router: IRouter = Router();
 
@@ -78,13 +81,49 @@ function getGoogleCallbackUrl(req: Request): string {
   return `${getOrigin(req)}/api/auth/google/callback`;
 }
 
+function getOAuthStateSecret(): string {
+  return process.env.GOOGLE_CLIENT_SECRET || process.env.OAUTH_STATE_SECRET || "development-oauth-state-secret";
+}
+
+function createOAuthState(mobileRedirect: string): string {
+  const payload = `${randomBytes(24).toString("base64url")}.${Buffer.from(mobileRedirect).toString("base64url")}`;
+  const signature = createHmac("sha256", getOAuthStateSecret()).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+function readOAuthMobileRedirect(state: unknown): string | null {
+  if (typeof state !== "string") return null;
+  const parts = state.split(".");
+  if (parts.length !== 3) return null;
+  const [nonce, encodedRedirect, signature] = parts;
+  const payload = `${nonce}.${encodedRedirect}`;
+  const expected = createHmac("sha256", getOAuthStateSecret()).update(payload).digest("base64url");
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  try {
+    return getSafeMobileRedirect(Buffer.from(encodedRedirect, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function getSafeMobileRedirect(value: unknown): string | null {
   if (typeof value !== "string" || value.length === 0) return null;
+  const environment = process.env.NODE_ENV === "production" ? "production" : process.env.NODE_ENV === "staging" ? "staging" : "development";
+  const configured = (process.env[`MOBILE_AUTH_REDIRECT_ALLOWLIST_${environment.toUpperCase()}`] ?? process.env.MOBILE_AUTH_REDIRECT_ALLOWLIST ?? "")
+    .split(",")
+    .map((item) => item.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  const defaults = environment === "production"
+    ? ["wapigarage://auth"]
+    : ["wapigarage://auth", "exp://127.0.0.1:8081/--/auth"];
+  const allowlist = new Set([...defaults, ...configured]);
   try {
     const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:" && !value.includes("://")) {
-      return null;
-    }
+    const normalized = value.split("?")[0].replace(/\/$/, "");
+    if (!allowlist.has(normalized)) return null;
+    if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "wapigarage:") return null;
     return value;
   } catch {
     return null;
@@ -99,7 +138,7 @@ interface GoogleUserInfo {
   picture?: string;
 }
 
-router.get("/auth/google", (req: Request, res: Response) => {
+router.get("/auth/google", rateLimit({ keyPrefix: "oauth-start", windowMs: 10 * 60_000, max: 10 }), (req: Request, res: Response) => {
   const mobileRedirect = getSafeMobileRedirect(req.query.mobile_redirect);
   if (!mobileRedirect) {
     res.status(400).json({ error: "Missing or invalid mobile_redirect parameter" });
@@ -112,9 +151,8 @@ router.get("/auth/google", (req: Request, res: Response) => {
     return;
   }
 
-  const state = crypto.randomBytes(16).toString("hex");
+  const state = createOAuthState(mobileRedirect);
   setOidcCookie(res, "google_state", state);
-  setOidcCookie(res, "google_mobile_redirect", mobileRedirect);
 
   const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   authUrl.searchParams.set("client_id", clientId);
@@ -128,14 +166,15 @@ router.get("/auth/google", (req: Request, res: Response) => {
 });
 
 router.get("/auth/google/callback", async (req: Request, res: Response) => {
-  const mobileRedirect = req.cookies?.google_mobile_redirect;
+  const { code, state, error: googleError } = req.query;
+  const mobileRedirect = readOAuthMobileRedirect(state);
   const expectedState = req.cookies?.google_state;
 
   res.clearCookie("google_state", { path: "/" });
   res.clearCookie("google_mobile_redirect", { path: "/" });
 
   if (!mobileRedirect) {
-    res.status(400).json({ error: "Missing session, please try signing in again" });
+    res.status(400).json({ error: "Missing or invalid OAuth state" });
     return;
   }
 
@@ -145,14 +184,12 @@ router.get("/auth/google/callback", async (req: Request, res: Response) => {
     res.redirect(url.href);
   };
 
-  const { code, state, error: googleError } = req.query;
-
   if (googleError) {
     failRedirect(String(googleError));
     return;
   }
 
-  if (!code || typeof code !== "string" || !state || state !== expectedState) {
+  if (!code || typeof code !== "string" || !state || (expectedState && state !== expectedState)) {
     failRedirect("invalid_state");
     return;
   }
@@ -221,14 +258,32 @@ router.get("/auth/google/callback", async (req: Request, res: Response) => {
 
     const sid = await createSession(sessionData);
 
+    const exchangeCode = crypto.randomBytes(48).toString("base64url");
+    await db.insert(oauthExchangeCodesTable).values({
+      code: exchangeCode,
+      sessionId: sid,
+      isNewUser: String(isNewUser),
+      expiresAt: new Date(Date.now() + OAUTH_EXCHANGE_TTL),
+    });
     const successUrl = new URL(mobileRedirect);
-    successUrl.searchParams.set("token", sid);
-    successUrl.searchParams.set("isNewUser", String(isNewUser));
+    successUrl.searchParams.set("code", exchangeCode);
     res.redirect(successUrl.href);
   } catch (err) {
     req.log.error({ err }, "Google sign-in error");
     failRedirect("unexpected_error");
   }
+});
+
+router.post("/auth/mobile/exchange", rateLimit({ keyPrefix: "oauth-exchange", windowMs: 10 * 60_000, max: 10 }), async (req: Request, res: Response) => {
+  const code = typeof req.body?.code === "string" ? req.body.code : "";
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(code)) return res.status(400).json({ error: "Code OAuth invalide." });
+  const [exchange] = await db.select().from(oauthExchangeCodesTable).where(eq(oauthExchangeCodesTable.code, code));
+  if (!exchange || exchange.expiresAt <= new Date()) {
+    if (exchange) await db.delete(oauthExchangeCodesTable).where(eq(oauthExchangeCodesTable.code, code));
+    return res.status(400).json({ error: "Code OAuth expiré ou déjà utilisé." });
+  }
+  await db.delete(oauthExchangeCodesTable).where(eq(oauthExchangeCodesTable.code, code));
+  return res.json({ token: exchange.sessionId, isNewUser: exchange.isNewUser === "true" });
 });
 
 router.post("/mobile-auth/logout", async (req: Request, res: Response) => {

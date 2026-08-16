@@ -6,4 +6,6 @@ export * from "./conversations";
 export * from "./notifications";
 export * from "./certificationRequests";
 export * from "./payments";
+export * from "./invoices";
+export * from "./oauthExchangeCodes";
 export * from "./deletionReasons";
