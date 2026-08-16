@@ -57,8 +57,8 @@ const TAGS = ["Prix transparent", "Rapidité", "Bon accueil", "Travail propre"];
 const a = Platform.OS === "android" ? { includeFontPadding: false } : {};
 
 function getApiBase() {
-  return process.env.EXPO_PUBLIC_DOMAIN
-    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  return process.env.EXPO_PUBLIC_API_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_API_DOMAIN}`
     : "";
 }
 

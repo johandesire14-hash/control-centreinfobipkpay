@@ -81,8 +81,8 @@ const COMMISSION_RATE = 0.02; // 2 % Wapi
 const AUTH_TOKEN_KEY = "auth_session_token";
 
 function getApiBase() {
-  return process.env.EXPO_PUBLIC_DOMAIN
-    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  return process.env.EXPO_PUBLIC_API_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_API_DOMAIN}`
     : "";
 }
 

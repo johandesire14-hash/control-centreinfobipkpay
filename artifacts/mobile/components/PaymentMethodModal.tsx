@@ -46,11 +46,11 @@ interface PaymentMethodModalProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const _rawDomain = process.env.EXPO_PUBLIC_DOMAIN;
+const _rawDomain = process.env.EXPO_PUBLIC_API_DOMAIN;
 if (!_rawDomain) {
   console.error(
-    "[PaymentMethodModal] ⚠️  EXPO_PUBLIC_DOMAIN is not set — API calls will fail on device. " +
-      "Make sure the workflow injects EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN.",
+    "[PaymentMethodModal] ⚠️  EXPO_PUBLIC_API_DOMAIN is not set — API calls will fail on device. " +
+      "Make sure the workflow injects EXPO_PUBLIC_API_DOMAIN=$REPLIT_DEV_DOMAIN.",
   );
 }
 const API_BASE = _rawDomain ? `https://${_rawDomain}` : "";

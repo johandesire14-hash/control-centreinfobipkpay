@@ -6,8 +6,8 @@ import * as SecureStore from "expo-secure-store";
 const AUTH_TOKEN_KEY = "auth_session_token";
 
 function getApiBaseUrl(): string {
-  return process.env.EXPO_PUBLIC_DOMAIN
-    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  return process.env.EXPO_PUBLIC_API_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_API_DOMAIN}`
     : "";
 }
 

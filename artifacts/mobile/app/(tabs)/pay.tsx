@@ -34,8 +34,8 @@ const CORNER_LEN = 32;
 const CORNER_THICK = 3.5;
 
 function getApiBase() {
-  return process.env.EXPO_PUBLIC_DOMAIN
-    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  return process.env.EXPO_PUBLIC_API_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_API_DOMAIN}`
     : "";
 }
 

@@ -48,8 +48,8 @@ export default function AuthScreen() {
     (async () => {
       try {
         const token = await SecureStore.getItemAsync("auth_session_token");
-        const apiBase = process.env.EXPO_PUBLIC_DOMAIN
-          ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+        const apiBase = process.env.EXPO_PUBLIC_API_DOMAIN
+          ? `https://${process.env.EXPO_PUBLIC_API_DOMAIN}`
           : "";
         const res = await fetch(`${apiBase}/api/profile`, {
           headers: { Authorization: `Bearer ${token ?? ""}` },
