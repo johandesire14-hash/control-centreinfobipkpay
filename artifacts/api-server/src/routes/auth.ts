@@ -119,11 +119,23 @@ function getSafeMobileRedirect(value: unknown): string | null {
     ? ["wapigarage://auth"]
     : ["wapigarage://auth", "exp://127.0.0.1:8081/--/auth"];
   const allowlist = new Set([...defaults, ...configured]);
+  const replitExpoDomain = (process.env.REPLIT_EXPO_DEV_DOMAIN ?? "")
+    .replace(/^https?:\/\//, "")
+    .split("/", 1)[0]
+    .toLowerCase();
   try {
     const url = new URL(value);
     const normalized = value.split("?")[0].replace(/\/$/, "");
-    if (!allowlist.has(normalized)) return null;
-    if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "wapigarage:") return null;
+    const isAllowedReplitExpoRedirect =
+      environment !== "production" &&
+      url.protocol === "exp:" &&
+      Boolean(replitExpoDomain) &&
+      url.hostname.toLowerCase() === replitExpoDomain &&
+      /^\/--\/auth\/?$/.test(url.pathname);
+    if (!allowlist.has(normalized) && !isAllowedReplitExpoRedirect) return null;
+    const allowedProtocols = new Set(["http:", "https:", "wapigarage:"]);
+    if (environment !== "production") allowedProtocols.add("exp:");
+    if (!allowedProtocols.has(url.protocol)) return null;
     return value;
   } catch {
     return null;
