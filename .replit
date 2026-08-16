@@ -78,6 +78,8 @@ packages = ["nano", "psmisc", "try"]
 [userenv]
 
 [userenv.shared]
+EXPO_PUBLIC_SUPABASE_URL = "https://rljiaxrwhaffgdvygdvy.supabase.co"
+EXPO_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsamlheHJ3aGFmZmdkdnlnZHZ5IiwiaWF0IjoxNzg0MTE5ODE5LCJleHAiOjIwOTk2OTU4MTl9.0A27DaJH5z5XiT0x2Sb92IeUUh6oPQ5Z7biCoCHmpLA"
 
 [[ports]]
 localPort = 8080
