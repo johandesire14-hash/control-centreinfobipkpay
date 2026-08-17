@@ -7,6 +7,7 @@ import { logger } from "./lib/logger";
 import { authMiddleware } from "./middlewares/authMiddleware";
 
 const app: Express = express();
+app.set("trust proxy", 1);
 
 app.use(
   pinoHttp({
@@ -48,8 +49,7 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   const status = (err as { status?: number; statusCode?: number })?.status
     ?? (err as { status?: number; statusCode?: number })?.statusCode
     ?? 500;
-  const message =
-    err instanceof Error ? err.message : typeof err === "string" ? err : "Internal server error";
+  const message = status >= 500 ? "Erreur serveur interne." : "Requête invalide.";
 
   logger.error({ err, url: req.url, method: req.method }, "Unhandled route error");
 

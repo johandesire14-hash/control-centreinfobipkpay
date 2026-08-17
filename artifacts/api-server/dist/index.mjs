@@ -48069,6 +48069,7 @@ async function authMiddleware(req, res, next) {
 
 // src/app.ts
 var app = (0, import_express20.default)();
+app.set("trust proxy", 1);
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -48102,7 +48103,7 @@ app.use(authMiddleware);
 app.use("/api", routes_default);
 app.use((err, req, res, _next) => {
   const status = err?.status ?? err?.statusCode ?? 500;
-  const message = err instanceof Error ? err.message : typeof err === "string" ? err : "Internal server error";
+  const message = status >= 500 ? "Erreur serveur interne." : "Requ\xEAte invalide.";
   logger.error({ err, url: req.url, method: req.method }, "Unhandled route error");
   res.status(status).json({ error: message });
 });
