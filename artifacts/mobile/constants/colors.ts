@@ -28,7 +28,8 @@ const colors = {
 
     // Muted / subdued elements (dividers, timestamps, placeholders)
     muted: "#EBEBF0",
-    mutedForeground: "#8E8E93",
+    // 5.0:1+ on the light background for readable small text.
+    mutedForeground: "#6B6B70",
 
     // Accent highlights (stars, badges)
     accent: "#E4B93A",
@@ -44,12 +45,13 @@ const colors = {
 
     // Extra semantic tokens
     success: "#1D7159",
-    warning: "#E4B93A",
+    // Darkened for text use; accent remains available for filled highlights.
+    warning: "#8A6200",
 
     // Tab bar (dark floating pill)
     tabBar: "#1C1C1E",
     tabBarActive: "#FFFFFF",
-    tabBarInactive: "#636366",
+    tabBarInactive: "#B0B0B5",
   },
 
   dark: {
@@ -64,7 +66,6 @@ const colors = {
     secondary: "#2C2C2E",
     secondaryForeground: "#FFFFFF",
     muted: "#2C2C2E",
-    mutedForeground: "#8E8E93",
     accent: "#E4B93A",
     accentForeground: "#1C1C1E",
     destructive: "#FF453A",
@@ -72,10 +73,12 @@ const colors = {
     border: "#38383A",
     input: "#2C2C2E",
     success: "#34a17a",
-    warning: "#E4B93A",
+    // High-contrast secondary text on the dark background.
+    mutedForeground: "#B0B0B5",
+    warning: "#F2C94C",
     tabBar: "#1C1C1E",
     tabBarActive: "#FFFFFF",
-    tabBarInactive: "#636366",
+    tabBarInactive: "#B0B0B5",
   },
 
   radius: 20,
