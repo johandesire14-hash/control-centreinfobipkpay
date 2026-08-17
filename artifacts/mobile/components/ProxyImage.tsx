@@ -51,7 +51,7 @@ export function ProxyImage(props: ImageProps) {
     return <ImageFallback style={props.style} />;
   }
 
-  return <Image {...props} onError={handleError} />;
+  return <Image {...props} cachePolicy={props.cachePolicy ?? "memory-disk"} onError={handleError} />;
 }
 
 const styles = StyleSheet.create({

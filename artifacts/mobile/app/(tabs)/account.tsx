@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ProxyImage as Image } from "@/components/ProxyImage";
 import type { LucideIcon } from "lucide-react-native";
 import { User, Camera, Wrench, ChevronRight, Bell, Settings, Info, LogOut, Heart, CreditCard, ScanLine } from "lucide-react-native";
@@ -40,7 +40,13 @@ function MenuRow({
   const colors = useColors();
   const Icon = icon;
   return (
-    <Pressable onPress={onPress} style={[styles.menuRow, { backgroundColor: colors.card }]}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.menuRow, { backgroundColor: colors.card }]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={danger ? "Déconnecte votre compte" : undefined}
+    >
       <View style={[styles.menuIcon, { backgroundColor: danger ? colors.destructive + "15" : colors.secondary }]}>
         <Icon size={17} color={danger ? colors.destructive : colors.foreground} />
       </View>
@@ -205,10 +211,13 @@ export default function MonEspaceScreen() {
         {favorites.isLoading ? null : (favorites.data ?? []).length === 0 ? (
           <EmptyState icon={Heart} title="Aucun garage favori" description="Ajoutez des garages à vos favoris pour les retrouver ici." />
         ) : (
-          <View style={{ gap: 12 }}>
-            {(favorites.data ?? []).map((g, index) => (
+          <FlatList
+            data={favorites.data ?? []}
+            scrollEnabled={false}
+            keyExtractor={(g, index) => g.id?.toString() ?? `fav-${index}`}
+            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+            renderItem={({ item: g }) => (
               <GarageCard
-                key={g.id?.toString() ?? `fav-${index}`}
                 garage={g}
                 onToggleFavorite={(garage) => {
                   removeFavorite.mutate(
@@ -217,8 +226,8 @@ export default function MonEspaceScreen() {
                   );
                 }}
               />
-            ))}
-          </View>
+            )}
+          />
         )}
       </View>
       </ScrollView>

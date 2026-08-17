@@ -360,7 +360,12 @@ export default function ScanAndPayScreen() {
         <Text style={S.gateSub}>
           Pour scanner un QR Code de facture, autorisez l'accès à la caméra depuis les réglages.
         </Text>
-        <Pressable onPress={requestPermission} style={S.btn}>
+        <Pressable
+          onPress={requestPermission}
+          style={S.btn}
+          accessibilityRole="button"
+          accessibilityLabel="Autoriser l'accès à la caméra"
+        >
           <Text style={S.btnText}>Autoriser la caméra</Text>
         </Pressable>
       </View>
@@ -385,6 +390,8 @@ export default function ScanAndPayScreen() {
         <Pressable
           onPress={() => router.push("/auth")}
           style={[S.btn, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Se connecter pour accéder au paiement"
         >
           <Text style={S.btnText}>Se connecter</Text>
         </Pressable>
@@ -442,12 +449,19 @@ export default function ScanAndPayScreen() {
               router.push(`/receipt?${params.toString()}`);
               resetScanner();
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Voir mon reçu et laisser un avis"
           >
             <Star size={17} color="#060F0B" fill="#060F0B" />
             <Text style={S.receiptBtnText}>Voir mon reçu & Laisser un avis</Text>
           </Pressable>
 
-          <Pressable onPress={resetScanner} style={S.ghostBtn}>
+          <Pressable
+            onPress={resetScanner}
+            style={S.ghostBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Scanner une nouvelle facture"
+          >
             <Text style={S.ghostBtnText}>Scanner une nouvelle facture</Text>
           </Pressable>
         </View>

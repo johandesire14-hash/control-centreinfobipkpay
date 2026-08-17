@@ -266,7 +266,14 @@ export default function GarageDetailScreen() {
         {/* Tabs */}
         <View style={[styles.tabRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           {(["info", "avis", "galerie"] as TabKey[]).map((t) => (
-            <Pressable key={t} onPress={() => setTab(t)} style={styles.tabItem}>
+            <Pressable
+              key={t}
+              onPress={() => setTab(t)}
+              style={styles.tabItem}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === t }}
+              accessibilityLabel={t === "info" ? "Informations" : t === "avis" ? `Avis, ${g.reviewCount}` : "Galerie"}
+            >
               <Text
                 style={[
                   styles.tabLabel,
@@ -369,7 +376,14 @@ export default function GarageDetailScreen() {
                   <Text style={[styles.subheading, { color: colors.foreground, marginTop: 0 }]}>Votre note</Text>
                   <View style={styles.starPicker}>
                     {[1, 2, 3, 4, 5].map((n) => (
-                      <Pressable key={n} onPress={() => setReviewRating(n)} hitSlop={6}>
+                      <Pressable
+                        key={n}
+                        onPress={() => setReviewRating(n)}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${n} étoile${n > 1 ? "s" : ""}`}
+                        accessibilityState={{ selected: n === reviewRating }}
+                      >
                         <Star size={28} color={n <= reviewRating ? colors.accent : colors.border} />
                       </Pressable>
                     ))}
@@ -383,13 +397,20 @@ export default function GarageDetailScreen() {
                     style={[styles.reviewInput, { backgroundColor: colors.secondary, color: colors.foreground }]}
                   />
                   <View style={styles.reviewFormActions}>
-                    <Pressable onPress={() => setShowReviewForm(false)} style={[styles.cancelButton, { backgroundColor: colors.secondary }]}>
+                    <Pressable
+                      onPress={() => setShowReviewForm(false)}
+                      style={[styles.cancelButton, { backgroundColor: colors.secondary }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Annuler la rédaction de l'avis"
+                    >
                       <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14 }}>Annuler</Text>
                     </Pressable>
                     <Pressable
                       onPress={handleSubmitReview}
                       disabled={createReview.isPending}
                       style={[styles.submitButton, { backgroundColor: colors.primary }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Publier l'avis"
                     >
                       <Text style={styles.submitButtonText}>{createReview.isPending ? "Envoi…" : "Publier"}</Text>
                     </Pressable>
@@ -405,6 +426,8 @@ export default function GarageDetailScreen() {
                     setShowReviewForm(true);
                   }}
                   style={[styles.addReviewButton, { backgroundColor: colors.card, borderColor: colors.primary }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Laisser un avis"
                 >
                   <Pencil size={15} color={colors.primary} />
                   <Text style={[styles.addReviewText, { color: colors.primary }]}>Laisser un avis</Text>

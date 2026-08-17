@@ -38,3 +38,6 @@ jobs:
 
       - name: Typecheck mobile
         run: pnpm --filter @workspace/mobile exec tsc --noEmit --pretty false
+
+      - name: Security contract tests
+        run: pnpm test:security-contracts
