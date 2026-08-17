@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import express from "express";
+import { rateLimit } from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 
@@ -10,6 +11,7 @@ const BUCKET = "wapi-bucket";
 // Accept raw binary body for this route only
 router.post(
   "/upload",
+  rateLimit({ keyPrefix: "upload", windowMs: 60 * 60_000, max: 30 }),
   express.raw({ type: ["image/*", "application/octet-stream"], limit: "10mb" }),
   async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) {

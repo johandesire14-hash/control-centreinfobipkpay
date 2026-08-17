@@ -13,6 +13,7 @@ export const invoiceStatuses = [
   "issued",
   "pending",
   "paid",
+  "failed",
   "expired",
   "cancelled",
 ] as const;

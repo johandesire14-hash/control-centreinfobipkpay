@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
@@ -302,12 +302,11 @@ router.get("/auth/google/callback", async (req: Request, res: Response) => {
 router.post("/auth/mobile/exchange", rateLimit({ keyPrefix: "oauth-exchange", windowMs: 10 * 60_000, max: 10 }), async (req: Request, res: Response) => {
   const code = typeof req.body?.code === "string" ? req.body.code : "";
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(code)) return res.status(400).json({ error: "Code OAuth invalide." });
-  const [exchange] = await db.select().from(oauthExchangeCodesTable).where(eq(oauthExchangeCodesTable.code, code));
-  if (!exchange || exchange.expiresAt <= new Date()) {
-    if (exchange) await db.delete(oauthExchangeCodesTable).where(eq(oauthExchangeCodesTable.code, code));
-    return res.status(400).json({ error: "Code OAuth expiré ou déjà utilisé." });
-  }
-  await db.delete(oauthExchangeCodesTable).where(eq(oauthExchangeCodesTable.code, code));
+  const [exchange] = await db
+    .delete(oauthExchangeCodesTable)
+    .where(and(eq(oauthExchangeCodesTable.code, code), gt(oauthExchangeCodesTable.expiresAt, new Date())))
+    .returning();
+  if (!exchange) return res.status(400).json({ error: "Code OAuth expiré ou déjà utilisé." });
   return res.json({ token: exchange.sessionId, isNewUser: exchange.isNewUser === "true" });
 });
 

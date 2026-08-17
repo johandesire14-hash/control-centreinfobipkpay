@@ -9,24 +9,30 @@ export type RateLimitOptions = {
   keyPrefix: string;
 };
 
-function clientKey(req: Request, prefix: string): string {
+function clientKeys(req: Request, prefix: string): string[] {
+  const keys = [`${prefix}:ip:${req.ip ?? "unknown"}`];
   const userId = req.isAuthenticated?.() ? req.user?.id : undefined;
-  return `${prefix}:${userId ?? req.ip ?? "unknown"}`;
+  if (userId) keys.push(`${prefix}:user:${userId}`);
+  return keys;
 }
 
 export function rateLimit(options: RateLimitOptions) {
   return (req: Request, res: Response, next: NextFunction) => {
     const now = Date.now();
-    const key = clientKey(req, options.keyPrefix);
-    const current = buckets.get(key);
-    const bucket = !current || current.resetAt <= now
-      ? { count: 0, resetAt: now + options.windowMs }
-      : current;
-    bucket.count += 1;
-    buckets.set(key, bucket);
+    let retryAfter = 0;
+    for (const key of clientKeys(req, options.keyPrefix)) {
+      const current = buckets.get(key);
+      const bucket = !current || current.resetAt <= now
+        ? { count: 0, resetAt: now + options.windowMs }
+        : current;
+      bucket.count += 1;
+      buckets.set(key, bucket);
+      if (bucket.count > options.max) {
+        retryAfter = Math.max(retryAfter, Math.ceil((bucket.resetAt - now) / 1000));
+      }
+    }
 
-    if (bucket.count > options.max) {
-      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+    if (retryAfter > 0) {
       res.setHeader("Retry-After", String(retryAfter));
       return res.status(429).json({ error: "Trop de tentatives. Réessayez plus tard." });
     }

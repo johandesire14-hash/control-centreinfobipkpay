@@ -1,6 +1,7 @@
-import { integer, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { integer, pgTable, serial, text, timestamp, uuid, varchar, uniqueIndex } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 import { garagesTable } from "./garages";
+import { invoicesTable } from "./invoices";
 
 export const reviewsTable = pgTable("reviews", {
   id: serial("id").primaryKey(),
@@ -10,6 +11,9 @@ export const reviewsTable = pgTable("reviews", {
   userId: varchar("user_id")
     .notNull()
     .references(() => usersTable.id),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoicesTable.id, { onDelete: "cascade" }),
   rating: integer("rating").notNull(),
   comment: text("comment"),
   qualityRating: integer("quality_rating").notNull(),
@@ -17,7 +21,7 @@ export const reviewsTable = pgTable("reviews", {
   punctualityRating: integer("punctuality_rating").notNull(),
   valueRating: integer("value_rating").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [uniqueIndex("reviews_invoice_unique").on(table.invoiceId)]);
 
 export type Review = typeof reviewsTable.$inferSelect;
 export type InsertReview = typeof reviewsTable.$inferInsert;

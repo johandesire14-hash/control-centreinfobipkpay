@@ -112,7 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const resultUrl = new URL(result.url);
-      const token = resultUrl.searchParams.get("token");
       const error = resultUrl.searchParams.get("error");
 
       if (error) {
@@ -121,9 +120,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const exchangeCode = resultUrl.searchParams.get("code");
+      let token: string | null = null;
+
+      if (exchangeCode) {
+        const exchangeRes = await fetch(`${apiBase}/api/auth/mobile/exchange`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: exchangeCode }),
+        });
+        const exchangeData = await exchangeRes.json().catch(() => null);
+        if (!exchangeRes.ok || typeof exchangeData?.token !== "string") {
+          console.error("Google session exchange failed", exchangeData?.error ?? exchangeRes.status);
+          setIsLoading(false);
+          return;
+        }
+        token = exchangeData.token;
+        setIsNewUser(exchangeData.isNewUser === true);
+      }
+
       if (token) {
         await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
-        setIsNewUser(resultUrl.searchParams.get("isNewUser") === "true");
         setIsGuest(false);
         await fetchUser();
       } else {

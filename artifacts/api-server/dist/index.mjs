@@ -158,9 +158,9 @@ var require_ms = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/common.js
+// ../../node_modules/.pnpm/debug@4.4.3_supports-color@8.1.1/node_modules/debug/src/common.js
 var require_common = __commonJS({
-  "../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/common.js"(exports, module) {
+  "../../node_modules/.pnpm/debug@4.4.3_supports-color@8.1.1/node_modules/debug/src/common.js"(exports, module) {
     function setup(env) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
@@ -335,9 +335,9 @@ var require_common = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/browser.js
+// ../../node_modules/.pnpm/debug@4.4.3_supports-color@8.1.1/node_modules/debug/src/browser.js
 var require_browser = __commonJS({
-  "../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/browser.js"(exports, module) {
+  "../../node_modules/.pnpm/debug@4.4.3_supports-color@8.1.1/node_modules/debug/src/browser.js"(exports, module) {
     exports.formatArgs = formatArgs;
     exports.save = save;
     exports.load = load;
@@ -518,27 +518,29 @@ var require_has_flag = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/supports-color@7.2.0/node_modules/supports-color/index.js
+// ../../node_modules/.pnpm/supports-color@8.1.1/node_modules/supports-color/index.js
 var require_supports_color = __commonJS({
-  "../../node_modules/.pnpm/supports-color@7.2.0/node_modules/supports-color/index.js"(exports, module) {
+  "../../node_modules/.pnpm/supports-color@8.1.1/node_modules/supports-color/index.js"(exports, module) {
     "use strict";
     var os = __require("os");
     var tty = __require("tty");
     var hasFlag = require_has_flag();
     var { env } = process;
-    var forceColor;
+    var flagForceColor;
     if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
-      forceColor = 0;
+      flagForceColor = 0;
     } else if (hasFlag("color") || hasFlag("colors") || hasFlag("color=true") || hasFlag("color=always")) {
-      forceColor = 1;
+      flagForceColor = 1;
     }
-    if ("FORCE_COLOR" in env) {
-      if (env.FORCE_COLOR === "true") {
-        forceColor = 1;
-      } else if (env.FORCE_COLOR === "false") {
-        forceColor = 0;
-      } else {
-        forceColor = env.FORCE_COLOR.length === 0 ? 1 : Math.min(parseInt(env.FORCE_COLOR, 10), 3);
+    function envForceColor() {
+      if ("FORCE_COLOR" in env) {
+        if (env.FORCE_COLOR === "true") {
+          return 1;
+        }
+        if (env.FORCE_COLOR === "false") {
+          return 0;
+        }
+        return env.FORCE_COLOR.length === 0 ? 1 : Math.min(Number.parseInt(env.FORCE_COLOR, 10), 3);
       }
     }
     function translateLevel(level) {
@@ -552,15 +554,22 @@ var require_supports_color = __commonJS({
         has16m: level >= 3
       };
     }
-    function supportsColor(haveStream, streamIsTTY) {
+    function supportsColor(haveStream, { streamIsTTY, sniffFlags = true } = {}) {
+      const noFlagForceColor = envForceColor();
+      if (noFlagForceColor !== void 0) {
+        flagForceColor = noFlagForceColor;
+      }
+      const forceColor = sniffFlags ? flagForceColor : noFlagForceColor;
       if (forceColor === 0) {
         return 0;
       }
-      if (hasFlag("color=16m") || hasFlag("color=full") || hasFlag("color=truecolor")) {
-        return 3;
-      }
-      if (hasFlag("color=256")) {
-        return 2;
+      if (sniffFlags) {
+        if (hasFlag("color=16m") || hasFlag("color=full") || hasFlag("color=truecolor")) {
+          return 3;
+        }
+        if (hasFlag("color=256")) {
+          return 2;
+        }
       }
       if (haveStream && !streamIsTTY && forceColor === void 0) {
         return 0;
@@ -577,7 +586,7 @@ var require_supports_color = __commonJS({
         return 1;
       }
       if ("CI" in env) {
-        if (["TRAVIS", "CIRCLECI", "APPVEYOR", "GITLAB_CI", "GITHUB_ACTIONS", "BUILDKITE"].some((sign) => sign in env) || env.CI_NAME === "codeship") {
+        if (["TRAVIS", "CIRCLECI", "APPVEYOR", "GITLAB_CI", "GITHUB_ACTIONS", "BUILDKITE", "DRONE"].some((sign) => sign in env) || env.CI_NAME === "codeship") {
           return 1;
         }
         return min;
@@ -589,7 +598,7 @@ var require_supports_color = __commonJS({
         return 3;
       }
       if ("TERM_PROGRAM" in env) {
-        const version2 = parseInt((env.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
+        const version2 = Number.parseInt((env.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
         switch (env.TERM_PROGRAM) {
           case "iTerm.app":
             return version2 >= 3 ? 3 : 2;
@@ -608,21 +617,24 @@ var require_supports_color = __commonJS({
       }
       return min;
     }
-    function getSupportLevel(stream) {
-      const level = supportsColor(stream, stream && stream.isTTY);
+    function getSupportLevel(stream, options = {}) {
+      const level = supportsColor(stream, {
+        streamIsTTY: stream && stream.isTTY,
+        ...options
+      });
       return translateLevel(level);
     }
     module.exports = {
       supportsColor: getSupportLevel,
-      stdout: translateLevel(supportsColor(true, tty.isatty(1))),
-      stderr: translateLevel(supportsColor(true, tty.isatty(2)))
+      stdout: getSupportLevel({ isTTY: tty.isatty(1) }),
+      stderr: getSupportLevel({ isTTY: tty.isatty(2) })
     };
   }
 });
 
-// ../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js
+// ../../node_modules/.pnpm/debug@4.4.3_supports-color@8.1.1/node_modules/debug/src/node.js
 var require_node = __commonJS({
-  "../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js"(exports, module) {
+  "../../node_modules/.pnpm/debug@4.4.3_supports-color@8.1.1/node_modules/debug/src/node.js"(exports, module) {
     var tty = __require("tty");
     var util2 = __require("util");
     exports.init = init;
@@ -794,9 +806,9 @@ var require_node = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/index.js
+// ../../node_modules/.pnpm/debug@4.4.3_supports-color@8.1.1/node_modules/debug/src/index.js
 var require_src = __commonJS({
-  "../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/index.js"(exports, module) {
+  "../../node_modules/.pnpm/debug@4.4.3_supports-color@8.1.1/node_modules/debug/src/index.js"(exports, module) {
     if (typeof process === "undefined" || process.type === "renderer" || process.browser === true || process.__nwjs) {
       module.exports = require_browser();
     } else {
@@ -15551,9 +15563,9 @@ var require_type_is = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/utils.js
+// ../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/utils.js
 var require_utils = __commonJS({
-  "../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/utils.js"(exports, module) {
+  "../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/utils.js"(exports, module) {
     "use strict";
     var bytes = require_bytes();
     var contentType = require_dist();
@@ -15603,9 +15615,9 @@ var require_utils = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/read.js
+// ../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/read.js
 var require_read = __commonJS({
-  "../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/read.js"(exports, module) {
+  "../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/read.js"(exports, module) {
     "use strict";
     var createError = require_http_errors();
     var getBody = require_raw_body();
@@ -15761,9 +15773,9 @@ var require_read = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/types/json.js
+// ../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/types/json.js
 var require_json = __commonJS({
-  "../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/types/json.js"(exports, module) {
+  "../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/types/json.js"(exports, module) {
     "use strict";
     var debug = require_src()("body-parser:json");
     var read = require_read();
@@ -15860,9 +15872,9 @@ var require_json = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/types/raw.js
+// ../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/types/raw.js
 var require_raw = __commonJS({
-  "../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/types/raw.js"(exports, module) {
+  "../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/types/raw.js"(exports, module) {
     "use strict";
     var debug = require_src()("body-parser:raw");
     var read = require_read();
@@ -15882,9 +15894,9 @@ var require_raw = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/types/text.js
+// ../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/types/text.js
 var require_text = __commonJS({
-  "../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/types/text.js"(exports, module) {
+  "../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/types/text.js"(exports, module) {
     "use strict";
     var debug = require_src()("body-parser:text");
     var read = require_read();
@@ -18436,9 +18448,9 @@ var require_lib2 = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/types/urlencoded.js
+// ../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/types/urlencoded.js
 var require_urlencoded = __commonJS({
-  "../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/lib/types/urlencoded.js"(exports, module) {
+  "../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/lib/types/urlencoded.js"(exports, module) {
     "use strict";
     var createError = require_http_errors();
     var debug = require_src()("body-parser:urlencoded");
@@ -18522,9 +18534,9 @@ var require_urlencoded = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/index.js
+// ../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/index.js
 var require_body_parser = __commonJS({
-  "../../node_modules/.pnpm/body-parser@2.3.0/node_modules/body-parser/index.js"(exports, module) {
+  "../../node_modules/.pnpm/body-parser@2.3.0_supports-color@8.1.1/node_modules/body-parser/index.js"(exports, module) {
     "use strict";
     exports = module.exports = bodyParser;
     exports.json = require_json();
@@ -18706,9 +18718,9 @@ var require_parseurl = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/finalhandler@2.1.1/node_modules/finalhandler/index.js
+// ../../node_modules/.pnpm/finalhandler@2.1.1_supports-color@8.1.1/node_modules/finalhandler/index.js
 var require_finalhandler = __commonJS({
-  "../../node_modules/.pnpm/finalhandler@2.1.1/node_modules/finalhandler/index.js"(exports, module) {
+  "../../node_modules/.pnpm/finalhandler@2.1.1_supports-color@8.1.1/node_modules/finalhandler/index.js"(exports, module) {
     "use strict";
     var debug = require_src()("finalhandler");
     var encodeUrl = require_encodeurl();
@@ -18833,9 +18845,9 @@ var require_finalhandler = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/view.js
+// ../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/view.js
 var require_view = __commonJS({
-  "../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/view.js"(exports, module) {
+  "../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/view.js"(exports, module) {
     "use strict";
     var debug = require_src()("express:view");
     var path = __require("node:path");
@@ -19036,14 +19048,14 @@ var require_etag = __commonJS({
   "../../node_modules/.pnpm/etag@1.8.1/node_modules/etag/index.js"(exports, module) {
     "use strict";
     module.exports = etag;
-    var crypto4 = __require("crypto");
+    var crypto5 = __require("crypto");
     var Stats = __require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash = crypto4.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash = crypto5.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash + '"';
     }
@@ -19901,9 +19913,9 @@ var require_proxy_addr = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/utils.js
+// ../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/utils.js
 var require_utils3 = __commonJS({
-  "../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/utils.js"(exports) {
+  "../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/utils.js"(exports) {
     "use strict";
     var { METHODS } = __require("node:http");
     var contentType = require_content_type();
@@ -20482,9 +20494,9 @@ var require_dist2 = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js
+// ../../node_modules/.pnpm/router@2.2.0_supports-color@8.1.1/node_modules/router/lib/layer.js
 var require_layer = __commonJS({
-  "../../node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js"(exports, module) {
+  "../../node_modules/.pnpm/router@2.2.0_supports-color@8.1.1/node_modules/router/lib/layer.js"(exports, module) {
     "use strict";
     var isPromise = require_is_promise();
     var pathRegexp = require_dist2();
@@ -20632,9 +20644,9 @@ var require_layer = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/router@2.2.0/node_modules/router/lib/route.js
+// ../../node_modules/.pnpm/router@2.2.0_supports-color@8.1.1/node_modules/router/lib/route.js
 var require_route = __commonJS({
-  "../../node_modules/.pnpm/router@2.2.0/node_modules/router/lib/route.js"(exports, module) {
+  "../../node_modules/.pnpm/router@2.2.0_supports-color@8.1.1/node_modules/router/lib/route.js"(exports, module) {
     "use strict";
     var debug = require_src()("router:route");
     var Layer = require_layer();
@@ -20752,9 +20764,9 @@ var require_route = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/router@2.2.0/node_modules/router/index.js
+// ../../node_modules/.pnpm/router@2.2.0_supports-color@8.1.1/node_modules/router/index.js
 var require_router = __commonJS({
-  "../../node_modules/.pnpm/router@2.2.0/node_modules/router/index.js"(exports, module) {
+  "../../node_modules/.pnpm/router@2.2.0_supports-color@8.1.1/node_modules/router/index.js"(exports, module) {
     "use strict";
     var isPromise = require_is_promise();
     var Layer = require_layer();
@@ -20766,27 +20778,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router18;
+    module.exports = Router19;
     module.exports.Route = Route;
-    function Router18(options) {
-      if (!(this instanceof Router18)) {
-        return new Router18(options);
+    function Router19(options) {
+      if (!(this instanceof Router19)) {
+        return new Router19(options);
       }
       const opts = options || {};
-      function router18(req, res, next) {
-        router18.handle(req, res, next);
+      function router19(req, res, next) {
+        router19.handle(req, res, next);
       }
-      Object.setPrototypeOf(router18, this);
-      router18.caseSensitive = opts.caseSensitive;
-      router18.mergeParams = opts.mergeParams;
-      router18.params = {};
-      router18.strict = opts.strict;
-      router18.stack = [];
-      return router18;
+      Object.setPrototypeOf(router19, this);
+      router19.caseSensitive = opts.caseSensitive;
+      router19.mergeParams = opts.mergeParams;
+      router19.params = {};
+      router19.strict = opts.strict;
+      router19.stack = [];
+      return router19;
     }
-    Router18.prototype = function() {
+    Router19.prototype = function() {
     };
-    Router18.prototype.param = function param(name, fn) {
+    Router19.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20806,7 +20818,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router18.prototype.handle = function handle(req, res, callback) {
+    Router19.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20933,7 +20945,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router18.prototype.use = function use(handler) {
+    Router19.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -20966,7 +20978,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router18.prototype.route = function route(path) {
+    Router19.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -20981,7 +20993,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router18.prototype[method] = function(path) {
+      Router19.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21150,9 +21162,9 @@ var require_router = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js
+// ../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/application.js
 var require_application = __commonJS({
-  "../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js"(exports, module) {
+  "../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/application.js"(exports, module) {
     "use strict";
     var finalhandler = require_finalhandler();
     var debug = require_src()("express:application");
@@ -21164,13 +21176,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router18 = require_router();
+    var Router19 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router18 = null;
+      var router19 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21179,13 +21191,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router18 === null) {
-            router18 = new Router18({
+          if (router19 === null) {
+            router19 = new Router19({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router18;
+          return router19;
         }
       });
     };
@@ -21256,15 +21268,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router18 = this.router;
+      var router19 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router18.use(path, fn2);
+          return router19.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router18.use(path, function mounted_app(req, res, next) {
+        router19.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -22158,9 +22170,9 @@ var require_range_parser = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/request.js
+// ../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/request.js
 var require_request = __commonJS({
-  "../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/request.js"(exports, module) {
+  "../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/request.js"(exports, module) {
     "use strict";
     var accepts = require_accepts();
     var isIP = __require("node:net").isIP;
@@ -22518,17 +22530,17 @@ var require_content_disposition = __commonJS({
 // ../../node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "../../node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js"(exports) {
-    var crypto4 = __require("crypto");
+    var crypto5 = __require("crypto");
     exports.sign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto4.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto5.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports.unsign = function(input, secret) {
       if ("string" != typeof input) throw new TypeError("Signed cookie string must be provided.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
       var tentativeValue = input.slice(0, input.lastIndexOf(".")), expectedInput = exports.sign(tentativeValue, secret), expectedBuffer = Buffer.from(expectedInput), inputBuffer = Buffer.from(input);
-      return expectedBuffer.length === inputBuffer.length && crypto4.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
+      return expectedBuffer.length === inputBuffer.length && crypto5.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
     };
   }
 });
@@ -22699,9 +22711,9 @@ var require_cookie = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/send@1.2.1/node_modules/send/index.js
+// ../../node_modules/.pnpm/send@1.2.1_supports-color@8.1.1/node_modules/send/index.js
 var require_send = __commonJS({
-  "../../node_modules/.pnpm/send@1.2.1/node_modules/send/index.js"(exports, module) {
+  "../../node_modules/.pnpm/send@1.2.1_supports-color@8.1.1/node_modules/send/index.js"(exports, module) {
     "use strict";
     var createError = require_http_errors();
     var debug = require_src()("send");
@@ -23255,9 +23267,9 @@ var require_vary = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/response.js
+// ../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/response.js
 var require_response = __commonJS({
-  "../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/response.js"(exports, module) {
+  "../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/response.js"(exports, module) {
     "use strict";
     var contentDisposition = require_content_disposition();
     var createError = require_http_errors();
@@ -23725,9 +23737,9 @@ var require_response = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/serve-static@2.2.1/node_modules/serve-static/index.js
+// ../../node_modules/.pnpm/serve-static@2.2.1_supports-color@8.1.1/node_modules/serve-static/index.js
 var require_serve_static = __commonJS({
-  "../../node_modules/.pnpm/serve-static@2.2.1/node_modules/serve-static/index.js"(exports, module) {
+  "../../node_modules/.pnpm/serve-static@2.2.1_supports-color@8.1.1/node_modules/serve-static/index.js"(exports, module) {
     "use strict";
     var encodeUrl = require_encodeurl();
     var escapeHtml = require_escape_html();
@@ -23829,15 +23841,15 @@ var require_serve_static = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/express.js
+// ../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/express.js
 var require_express = __commonJS({
-  "../../node_modules/.pnpm/express@5.2.1/node_modules/express/lib/express.js"(exports, module) {
+  "../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/lib/express.js"(exports, module) {
     "use strict";
     var bodyParser = require_body_parser();
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router18 = require_router();
+    var Router19 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23859,8 +23871,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router18.Route;
-    exports.Router = Router18;
+    exports.Route = Router19.Route;
+    exports.Router = Router19;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -23869,9 +23881,9 @@ var require_express = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/express@5.2.1/node_modules/express/index.js
+// ../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/index.js
 var require_express2 = __commonJS({
-  "../../node_modules/.pnpm/express@5.2.1/node_modules/express/index.js"(exports, module) {
+  "../../node_modules/.pnpm/express@5.2.1_supports-color@8.1.1/node_modules/express/index.js"(exports, module) {
     "use strict";
     module.exports = require_express();
   }
@@ -24158,11 +24170,11 @@ var require_lib3 = __commonJS({
 // ../../node_modules/.pnpm/cookie-signature@1.0.6/node_modules/cookie-signature/index.js
 var require_cookie_signature2 = __commonJS({
   "../../node_modules/.pnpm/cookie-signature@1.0.6/node_modules/cookie-signature/index.js"(exports) {
-    var crypto4 = __require("crypto");
+    var crypto5 = __require("crypto");
     exports.sign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if ("string" != typeof secret) throw new TypeError("Secret string must be provided.");
-      return val + "." + crypto4.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto5.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports.unsign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Signed cookie string must be provided.");
@@ -24171,7 +24183,7 @@ var require_cookie_signature2 = __commonJS({
       return sha1(mac) == sha1(val) ? str : false;
     };
     function sha1(str) {
-      return crypto4.createHash("sha1").update(str).digest("hex");
+      return crypto5.createHash("sha1").update(str).digest("hex");
     }
   }
 });
@@ -28369,7 +28381,7 @@ var require_pino = __commonJS({
     function pinoBundlerAbsolutePath(p) {
       try {
         const path = __require("path");
-        const outputDir = "/home/runner/workspace/artifacts/api-server/dist";
+        const outputDir = "/home/ubuntu/wapigarage-copy-fix/artifacts/api-server/dist";
         return path.resolve(outputDir, p.replace(/^\.\//, ""));
       } catch (e) {
         const f = new Function("p", "return new URL(p, import.meta.url).pathname");
@@ -29986,7 +29998,7 @@ var require_utils5 = __commonJS({
     var nodeCrypto = __require("crypto");
     module.exports = {
       postgresMd5PasswordHash,
-      randomBytes,
+      randomBytes: randomBytes2,
       deriveKey,
       sha256,
       hashByName,
@@ -29996,7 +30008,7 @@ var require_utils5 = __commonJS({
     var webCrypto = nodeCrypto.webcrypto || globalThis.crypto;
     var subtleCrypto = webCrypto.subtle;
     var textEncoder = new TextEncoder();
-    function randomBytes(length) {
+    function randomBytes2(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
     async function md5(string) {
@@ -30148,7 +30160,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/crypto/sasl.js"(exports, module) {
     "use strict";
-    var crypto4 = require_utils5();
+    var crypto5 = require_utils5();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function saslprep(password) {
       const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g;
@@ -30166,7 +30178,7 @@ var require_sasl = __commonJS({
       if (mechanism === "SCRAM-SHA-256-PLUS" && typeof stream.getPeerCertificate !== "function") {
         throw new Error("SASL: Mechanism SCRAM-SHA-256-PLUS requires a certificate");
       }
-      const clientNonce = crypto4.randomBytes(18).toString("base64");
+      const clientNonce = crypto5.randomBytes(18).toString("base64");
       const gs2Header = mechanism === "SCRAM-SHA-256-PLUS" ? "p=tls-server-end-point" : stream ? "y" : "n";
       return {
         mechanism,
@@ -30208,20 +30220,20 @@ var require_sasl = __commonJS({
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
-        const certHash = await crypto4.hashByName(hashName, peerCert);
+        const certHash = await crypto5.hashByName(hashName, peerCert);
         const bindingData = Buffer.concat([Buffer.from("p=tls-server-end-point,,"), Buffer.from(certHash)]);
         channelBinding = bindingData.toString("base64");
       }
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto4.deriveKey(saslprep(password), saltBytes, sv.iteration);
-      const clientKey = await crypto4.hmacSha256(saltedPassword, "Client Key");
-      const storedKey = await crypto4.sha256(clientKey);
-      const clientSignature = await crypto4.hmacSha256(storedKey, authMessage);
+      const saltedPassword = await crypto5.deriveKey(saslprep(password), saltBytes, sv.iteration);
+      const clientKey = await crypto5.hmacSha256(saltedPassword, "Client Key");
+      const storedKey = await crypto5.sha256(clientKey);
+      const clientSignature = await crypto5.hmacSha256(storedKey, authMessage);
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
-      const serverKey = await crypto4.hmacSha256(saltedPassword, "Server Key");
-      const serverSignatureBytes = await crypto4.hmacSha256(serverKey, authMessage);
+      const serverKey = await crypto5.hmacSha256(saltedPassword, "Server Key");
+      const serverSignatureBytes = await crypto5.hmacSha256(serverKey, authMessage);
       session.message = "SASLResponse";
       session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
       session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
@@ -32451,7 +32463,7 @@ var require_client = __commonJS({
     var Query2 = require_query();
     var defaults2 = require_defaults();
     var Connection2 = require_connection();
-    var crypto4 = require_utils5();
+    var crypto5 = require_utils5();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
       () => {
       },
@@ -32702,7 +32714,7 @@ var require_client = __commonJS({
       _handleAuthMD5Password(msg) {
         this._getPassword(async () => {
           try {
-            const hashedPassword = await crypto4.postgresMd5PasswordHash(this.user, this.password, msg.salt);
+            const hashedPassword = await crypto5.postgresMd5PasswordHash(this.user, this.password, msg.salt);
             this.connection.password(hashedPassword);
           } catch (e) {
             this.emit("error", e);
@@ -33982,13 +33994,13 @@ var require_lib5 = __commonJS({
 });
 
 // src/app.ts
-var import_express19 = __toESM(require_express2(), 1);
+var import_express20 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_cookie_parser = __toESM(require_cookie_parser(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express18 = __toESM(require_express2(), 1);
+var import_express19 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -41759,6 +41771,7 @@ function avg(expression) {
 
 // src/routes/auth.ts
 var import_express2 = __toESM(require_express2(), 1);
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 // ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib5(), 1);
@@ -41950,6 +41963,9 @@ var Index = class {
 };
 function index(name) {
   return new IndexBuilderOn(false, name);
+}
+function uniqueIndex(name) {
+  return new IndexBuilderOn(true, name);
 }
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/casing.js
@@ -45552,10 +45568,13 @@ __export(schema_exports, {
   garageMomoAccountsTable: () => garageMomoAccountsTable,
   garagePhotosTable: () => garagePhotosTable,
   garagesTable: () => garagesTable,
+  invoiceStatuses: () => invoiceStatuses,
+  invoicesTable: () => invoicesTable,
   kpayPaymentsTable: () => kpayPaymentsTable,
   maintenanceRecordsTable: () => maintenanceRecordsTable,
   messagesTable: () => messagesTable,
   notificationsTable: () => notificationsTable,
+  oauthExchangeCodesTable: () => oauthExchangeCodesTable,
   reviewsTable: () => reviewsTable,
   sessionsTable: () => sessionsTable,
   usersTable: () => usersTable
@@ -45614,11 +45633,42 @@ var garagePhotosTable = pgTable("garage_photos", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+// ../../lib/db/src/schema/invoices.ts
+var invoiceStatuses = [
+  "issued",
+  "pending",
+  "paid",
+  "failed",
+  "expired",
+  "cancelled"
+];
+var invoicesTable = pgTable("invoices", {
+  /** Opaque identifier shared in QR codes and payment links. */
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** Garage that issued the invoice. */
+  garageId: integer("garage_id").notNull().references(() => garagesTable.id, { onDelete: "cascade" }),
+  /** Optional client associated with the invoice. */
+  clientId: varchar("client_id").references(() => usersTable.id, {
+    onDelete: "set null"
+  }),
+  /** Server-side amount in the smallest currency unit. */
+  amount: integer("amount").notNull(),
+  currency: varchar("currency", { length: 3 }).notNull().default("XAF"),
+  description: text("description"),
+  status: text("status").$type().notNull().default("issued"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  kpayTransactionId: varchar("kpay_transaction_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => /* @__PURE__ */ new Date())
+});
+
 // ../../lib/db/src/schema/reviews.ts
 var reviewsTable = pgTable("reviews", {
   id: serial("id").primaryKey(),
   garageId: integer("garage_id").notNull().references(() => garagesTable.id, { onDelete: "cascade" }),
   userId: varchar("user_id").notNull().references(() => usersTable.id),
+  invoiceId: uuid("invoice_id").notNull().references(() => invoicesTable.id, { onDelete: "cascade" }),
   rating: integer("rating").notNull(),
   comment: text("comment"),
   qualityRating: integer("quality_rating").notNull(),
@@ -45626,7 +45676,7 @@ var reviewsTable = pgTable("reviews", {
   punctualityRating: integer("punctuality_rating").notNull(),
   valueRating: integer("value_rating").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-});
+}, (table) => [uniqueIndex("reviews_invoice_unique").on(table.invoiceId)]);
 
 // ../../lib/db/src/schema/favorites.ts
 var favoritesTable = pgTable(
@@ -45690,6 +45740,8 @@ var certificationRequestsTable = pgTable("certification_requests", {
 // ../../lib/db/src/schema/payments.ts
 var kpayPaymentsTable = pgTable("kpay_payments", {
   id: serial("id").primaryKey(),
+  /** Invoice that authorizes this payment. */
+  invoiceId: uuid("invoice_id").notNull().references(() => invoicesTable.id, { onDelete: "cascade" }),
   /** Unique ID we generated and sent to KPay — used to reconcile webhooks. */
   externalId: varchar("external_id").notNull().unique(),
   /** Transaction ID returned by KPay (null until KPay confirms). */
@@ -45756,6 +45808,19 @@ var maintenanceRecordsTable = pgTable("maintenance_records", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+// ../../lib/db/src/schema/oauthExchangeCodes.ts
+var oauthExchangeCodesTable = pgTable(
+  "oauth_exchange_codes",
+  {
+    code: varchar("code", { length: 128 }).primaryKey(),
+    sessionId: varchar("session_id").notNull(),
+    isNewUser: varchar("is_new_user", { length: 5 }).notNull().default("false"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
+  },
+  (table) => [index("oauth_exchange_codes_expire_idx").on(table.expiresAt)]
+);
+
 // ../../lib/db/src/schema/deletionReasons.ts
 var deletionReasonsTable = pgTable("deletion_reasons", {
   id: serial("id").primaryKey(),
@@ -45778,6 +45843,39 @@ var pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 var db = drizzle(pool, { schema: schema_exports });
+
+// src/middlewares/rateLimit.ts
+var buckets = /* @__PURE__ */ new Map();
+function clientKeys(req, prefix) {
+  const keys = [`${prefix}:ip:${req.ip ?? "unknown"}`];
+  const userId = req.isAuthenticated?.() ? req.user?.id : void 0;
+  if (userId) keys.push(`${prefix}:user:${userId}`);
+  return keys;
+}
+function rateLimit(options) {
+  return (req, res, next) => {
+    const now = Date.now();
+    let retryAfter = 0;
+    for (const key of clientKeys(req, options.keyPrefix)) {
+      const current = buckets.get(key);
+      const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + options.windowMs } : current;
+      bucket.count += 1;
+      buckets.set(key, bucket);
+      if (bucket.count > options.max) {
+        retryAfter = Math.max(retryAfter, Math.ceil((bucket.resetAt - now) / 1e3));
+      }
+    }
+    if (retryAfter > 0) {
+      res.setHeader("Retry-After", String(retryAfter));
+      return res.status(429).json({ error: "Trop de tentatives. R\xE9essayez plus tard." });
+    }
+    return next();
+  };
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of buckets) if (bucket.resetAt <= now) buckets.delete(key);
+}, 6e4).unref();
 
 // src/lib/auth.ts
 import crypto2 from "crypto";
@@ -45817,6 +45915,7 @@ function getSessionId(req) {
 
 // src/routes/auth.ts
 var OIDC_COOKIE_TTL = 10 * 60 * 1e3;
+var OAUTH_EXCHANGE_TTL = 60 * 1e3;
 var router2 = (0, import_express2.Router)();
 function getOrigin(req) {
   const proto = req.headers["x-forwarded-proto"] || "https";
@@ -45860,20 +45959,59 @@ router2.get("/auth/user", (req, res) => {
 function getGoogleCallbackUrl(req) {
   return `${getOrigin(req)}/api/auth/google/callback`;
 }
+function getOAuthStateSecret() {
+  return process.env.GOOGLE_CLIENT_SECRET || process.env.OAUTH_STATE_SECRET || "development-oauth-state-secret";
+}
+function createOAuthState(mobileRedirect) {
+  const payload = `${randomBytes(24).toString("base64url")}.${Buffer.from(mobileRedirect).toString("base64url")}`;
+  const signature = createHmac("sha256", getOAuthStateSecret()).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+function readOAuthMobileRedirect(state) {
+  if (typeof state !== "string") return null;
+  const parts = state.split(".");
+  if (parts.length !== 3) return null;
+  const [nonce, encodedRedirect, signature] = parts;
+  const payload = `${nonce}.${encodedRedirect}`;
+  const expected = createHmac("sha256", getOAuthStateSecret()).update(payload).digest("base64url");
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  try {
+    return getSafeMobileRedirect(Buffer.from(encodedRedirect, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
 function getSafeMobileRedirect(value) {
   if (typeof value !== "string" || value.length === 0) return null;
+  const environment = process.env.NODE_ENV === "production" ? "production" : process.env.NODE_ENV === "staging" ? "staging" : "development";
+  const configured = (process.env[`MOBILE_AUTH_REDIRECT_ALLOWLIST_${environment.toUpperCase()}`] ?? process.env.MOBILE_AUTH_REDIRECT_ALLOWLIST ?? "").split(",").map((item) => item.trim().replace(/\/$/, "")).filter(Boolean);
+  const defaults2 = environment === "production" ? ["wapigarage://auth"] : ["wapigarage://auth", "exp://127.0.0.1:8081/--/auth"];
+  const allowlist = /* @__PURE__ */ new Set([...defaults2, ...configured]);
+  const replitExpoDomain = (process.env.REPLIT_EXPO_DEV_DOMAIN ?? "").replace(/^https?:\/\//, "").split("/", 1)[0].toLowerCase();
   try {
     const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:" && !value.includes("://")) {
-      return null;
-    }
+    const normalized = value.split("?")[0].replace(/\/$/, "");
+    const isAllowedReplitExpoRedirect = environment !== "production" && url.protocol === "exp:" && Boolean(replitExpoDomain) && url.hostname.toLowerCase() === replitExpoDomain && /^\/--\/auth\/?$/.test(url.pathname);
+    if (!allowlist.has(normalized) && !isAllowedReplitExpoRedirect) return null;
+    const allowedProtocols = /* @__PURE__ */ new Set(["http:", "https:", "wapigarage:"]);
+    if (environment !== "production") allowedProtocols.add("exp:");
+    if (!allowedProtocols.has(url.protocol)) return null;
     return value;
   } catch {
     return null;
   }
 }
-router2.get("/auth/google", (req, res) => {
-  const mobileRedirect = getSafeMobileRedirect(req.query.mobile_redirect);
+function getDefaultMobileRedirect() {
+  const environment = process.env.NODE_ENV === "production" ? "production" : process.env.NODE_ENV === "staging" ? "staging" : "development";
+  if (environment === "production") return "wapigarage://auth";
+  const domain = (process.env.REPLIT_EXPO_DEV_DOMAIN ?? "").replace(/^https?:\/\//, "").split("/", 1)[0].toLowerCase();
+  return domain ? `exp://${domain}/--/auth` : null;
+}
+router2.get("/auth/google", rateLimit({ keyPrefix: "oauth-start", windowMs: 10 * 6e4, max: 10 }), (req, res) => {
+  const rawMobileRedirect = req.query.mobile_redirect;
+  const mobileRedirect = typeof rawMobileRedirect === "string" && rawMobileRedirect.length > 0 ? getSafeMobileRedirect(rawMobileRedirect) : getDefaultMobileRedirect();
   if (!mobileRedirect) {
     res.status(400).json({ error: "Missing or invalid mobile_redirect parameter" });
     return;
@@ -45883,9 +46021,8 @@ router2.get("/auth/google", (req, res) => {
     res.status(500).json({ error: "Google Sign-In is not configured" });
     return;
   }
-  const state = crypto3.randomBytes(16).toString("hex");
+  const state = createOAuthState(mobileRedirect);
   setOidcCookie(res, "google_state", state);
-  setOidcCookie(res, "google_mobile_redirect", mobileRedirect);
   const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   authUrl.searchParams.set("client_id", clientId);
   authUrl.searchParams.set("redirect_uri", getGoogleCallbackUrl(req));
@@ -45896,12 +46033,13 @@ router2.get("/auth/google", (req, res) => {
   res.redirect(authUrl.href);
 });
 router2.get("/auth/google/callback", async (req, res) => {
-  const mobileRedirect = req.cookies?.google_mobile_redirect;
+  const { code, state, error: googleError } = req.query;
+  const mobileRedirect = readOAuthMobileRedirect(state);
   const expectedState = req.cookies?.google_state;
   res.clearCookie("google_state", { path: "/" });
   res.clearCookie("google_mobile_redirect", { path: "/" });
   if (!mobileRedirect) {
-    res.status(400).json({ error: "Missing session, please try signing in again" });
+    res.status(400).json({ error: "Missing or invalid OAuth state" });
     return;
   }
   const failRedirect = (message) => {
@@ -45909,12 +46047,11 @@ router2.get("/auth/google/callback", async (req, res) => {
     url.searchParams.set("error", message);
     res.redirect(url.href);
   };
-  const { code, state, error: googleError } = req.query;
   if (googleError) {
     failRedirect(String(googleError));
     return;
   }
-  if (!code || typeof code !== "string" || !state || state !== expectedState) {
+  if (!code || typeof code !== "string" || !state || expectedState && state !== expectedState) {
     failRedirect("invalid_state");
     return;
   }
@@ -45969,14 +46106,27 @@ router2.get("/auth/google/callback", async (req, res) => {
       provider: "google"
     };
     const sid = await createSession(sessionData);
+    const exchangeCode = crypto3.randomBytes(48).toString("base64url");
+    await db.insert(oauthExchangeCodesTable).values({
+      code: exchangeCode,
+      sessionId: sid,
+      isNewUser: String(isNewUser),
+      expiresAt: new Date(Date.now() + OAUTH_EXCHANGE_TTL)
+    });
     const successUrl = new URL(mobileRedirect);
-    successUrl.searchParams.set("token", sid);
-    successUrl.searchParams.set("isNewUser", String(isNewUser));
+    successUrl.searchParams.set("code", exchangeCode);
     res.redirect(successUrl.href);
   } catch (err) {
     req.log.error({ err }, "Google sign-in error");
     failRedirect("unexpected_error");
   }
+});
+router2.post("/auth/mobile/exchange", rateLimit({ keyPrefix: "oauth-exchange", windowMs: 10 * 6e4, max: 10 }), async (req, res) => {
+  const code = typeof req.body?.code === "string" ? req.body.code : "";
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(code)) return res.status(400).json({ error: "Code OAuth invalide." });
+  const [exchange] = await db.delete(oauthExchangeCodesTable).where(and(eq(oauthExchangeCodesTable.code, code), gt(oauthExchangeCodesTable.expiresAt, /* @__PURE__ */ new Date()))).returning();
+  if (!exchange) return res.status(400).json({ error: "Code OAuth expir\xE9 ou d\xE9j\xE0 utilis\xE9." });
+  return res.json({ token: exchange.sessionId, isNewUser: exchange.isNewUser === "true" });
 });
 router2.post("/mobile-auth/logout", async (req, res) => {
   const sid = getSessionId(req);
@@ -46835,20 +46985,35 @@ router8.get("/garages/:garageId/reviews", async (req, res) => {
     )
   );
 });
-router8.post("/garages/:garageId/reviews", async (req, res) => {
+router8.post("/garages/:garageId/reviews", rateLimit({ keyPrefix: "review-create", windowMs: 60 * 6e4, max: 10 }), async (req, res) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   const garageId = Number(req.params.garageId);
+  const invoiceId = typeof req.body?.invoiceId === "string" ? req.body.invoiceId.trim() : "";
   const parsed = CreateGarageReviewBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid fields" });
     return;
   }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invoiceId)) {
+    res.status(400).json({ error: "Une facture valide est requise pour laisser un avis." });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage) {
     res.status(404).json({ error: "Garage not found" });
+    return;
+  }
+  const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, invoiceId));
+  if (!invoice || invoice.garageId !== garageId || invoice.clientId !== req.user.id || invoice.status !== "paid") {
+    res.status(403).json({ error: "Un avis est possible uniquement apr\xE8s une facture pay\xE9e dans ce garage." });
+    return;
+  }
+  const [existingReview] = await db.select({ id: reviewsTable.id }).from(reviewsTable).where(eq(reviewsTable.invoiceId, invoiceId));
+  if (existingReview) {
+    res.status(409).json({ error: "Cette facture a d\xE9j\xE0 \xE9t\xE9 \xE9valu\xE9e." });
     return;
   }
   if (garage.ownerId === req.user.id) {
@@ -46858,6 +47023,7 @@ router8.post("/garages/:garageId/reviews", async (req, res) => {
   const [review] = await db.insert(reviewsTable).values({
     garageId,
     userId: req.user.id,
+    invoiceId,
     rating: parsed.data.rating,
     comment: parsed.data.comment ?? null,
     qualityRating: parsed.data.qualityRating,
@@ -46987,7 +47153,7 @@ router10.get("/conversations", async (req, res) => {
     )
   );
 });
-router10.post("/conversations", async (req, res) => {
+router10.post("/conversations", rateLimit({ keyPrefix: "conversation-create", windowMs: 60 * 6e4, max: 20 }), async (req, res) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
     return;
@@ -47043,7 +47209,7 @@ router10.get("/conversations/:conversationId/messages", async (req, res) => {
     )
   );
 });
-router10.post("/conversations/:conversationId/messages", async (req, res) => {
+router10.post("/conversations/:conversationId/messages", rateLimit({ keyPrefix: "message-send", windowMs: 60 * 6e4, max: 120 }), async (req, res) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
     return;
@@ -47269,6 +47435,7 @@ var SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 var BUCKET2 = "wapi-bucket";
 router13.post(
   "/upload",
+  rateLimit({ keyPrefix: "upload", windowMs: 60 * 6e4, max: 30 }),
   import_express14.default.raw({ type: ["image/*", "application/octet-stream"], limit: "10mb" }),
   async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -47320,33 +47487,88 @@ var upload_default = router13;
 
 // src/routes/kpay.ts
 var import_express15 = __toESM(require_express2(), 1);
+import crypto4 from "node:crypto";
 var router14 = (0, import_express15.Router)();
-router14.post("/pay", async (req, res) => {
+function normalizePhone(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (digits.length === 9) return `242${digits}`;
+  if (digits.length === 12 && digits.startsWith("242")) return digits;
+  return null;
+}
+function normalizeProvider(value) {
+  const provider = String(value ?? "").trim().toUpperCase();
+  if (provider.includes("AIRTEL")) return "AIRTEL_COG";
+  if (provider.includes("MTN")) return "MTN_MOMO_COG";
+  return null;
+}
+function invoiceIsExpired(invoice) {
+  return invoice.expiresAt.getTime() <= Date.now() || invoice.status === "expired";
+}
+function signatureMatches(rawBody, signature, secret) {
+  if (!signature || !secret) return false;
+  const expected = crypto4.createHmac("sha256", secret).update(rawBody).digest("hex");
+  const provided = signature.replace(/^sha256=/i, "").trim();
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const providedBuffer = Buffer.from(provided, "utf8");
+  return expectedBuffer.length === providedBuffer.length && crypto4.timingSafeEqual(expectedBuffer, providedBuffer);
+}
+router14.post("/pay", rateLimit({ keyPrefix: "kpay-pay", windowMs: 6e4, max: 5 }), async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: "Authentification requise." });
   }
+  const body = req.body;
+  const invoiceId = typeof body.invoiceId === "string" ? body.invoiceId.trim() : "";
+  const phoneNumber = normalizePhone(body.phoneNumber ?? body.phone);
+  const provider = normalizeProvider(body.provider);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invoiceId)) {
+    return res.status(400).json({ error: "Identifiant de facture invalide." });
+  }
+  if (!phoneNumber) return res.status(400).json({ error: "Num\xE9ro de t\xE9l\xE9phone invalide." });
+  if (!provider) return res.status(400).json({ error: "Fournisseur Mobile Money invalide." });
+  const baseUrl = process.env.KPAY_API_URL || "https://admin.kpay.site";
+  const apiKey = process.env.KPAY_API_KEY;
+  const secretKey = process.env.KPAY_SECRET_KEY;
+  if (!apiKey || !secretKey) {
+    req.log?.error("KPay server credentials are not configured");
+    return res.status(503).json({ error: "Paiement temporairement indisponible." });
+  }
   try {
-    const { amount, externalId, description } = req.body;
-    const rawPhone = req.body.phoneNumber || req.body.phone || "";
-    const rawProvider = req.body.provider || "";
-    const providerInput = String(rawProvider).trim().toUpperCase();
-    let kpayProvider = providerInput.includes("AIRTEL") ? "AIRTEL_COG" : "MTN_MOMO_COG";
-    const digits = String(rawPhone).replace(/\D/g, "");
-    let phoneNumber = digits.length === 9 ? "242" + digits : digits;
-    const cleanAmount = Number(amount) || 0;
-    const cleanExternalId = externalId || `INV-${Date.now()}`;
-    const cleanDescription = description || "Paiement WapiGarage";
-    const payload = {
-      amount: cleanAmount,
+    const [invoice] = await db.select({ invoice: invoicesTable, garage: garagesTable }).from(invoicesTable).innerJoin(garagesTable, eq(garagesTable.id, invoicesTable.garageId)).where(eq(invoicesTable.id, invoiceId));
+    if (!invoice) return res.status(404).json({ error: "Facture introuvable." });
+    if (invoice.invoice.clientId && invoice.invoice.clientId !== req.user.id) {
+      return res.status(403).json({ error: "Cette facture ne vous est pas destin\xE9e." });
+    }
+    if (invoiceIsExpired(invoice.invoice)) {
+      await db.update(invoicesTable).set({ status: "expired" }).where(eq(invoicesTable.id, invoiceId));
+      return res.status(409).json({ error: "Cette facture a expir\xE9." });
+    }
+    if (["paid", "cancelled"].includes(invoice.invoice.status)) {
+      return res.status(409).json({ error: "Cette facture ne peut plus \xEAtre pay\xE9e." });
+    }
+    const existing = await db.select().from(kpayPaymentsTable).where(and(eq(kpayPaymentsTable.invoiceId, invoiceId), eq(kpayPaymentsTable.status, "PENDING")));
+    if (existing[0]) {
+      return res.status(202).json({
+        status: "pending",
+        invoiceId,
+        externalId: existing[0].externalId
+      });
+    }
+    const externalId = `WAPI-${invoiceId}-${crypto4.randomUUID()}`;
+    const [claimedInvoice] = await db.update(invoicesTable).set({ status: "pending" }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.status, invoice.invoice.status))).returning();
+    if (!claimedInvoice) return res.status(409).json({ error: "Facture d\xE9j\xE0 en cours de paiement." });
+    await db.insert(kpayPaymentsTable).values({
+      invoiceId,
+      externalId,
+      amount: String(invoice.invoice.amount),
+      grossAmount: invoice.invoice.amount,
+      netAmount: Math.max(0, invoice.invoice.amount - 500),
+      provider,
       phoneNumber,
-      provider: kpayProvider,
-      externalId: cleanExternalId,
-      description: cleanDescription
-    };
-    console.log("\u{1F680} [COUPABLE NEUTRALIS\xC9] PAYLOAD FINAL KPAY :", payload);
-    const baseUrl = process.env.KPAY_API_URL || "https://admin.kpay.site";
-    const apiKey = process.env.KPAY_API_KEY || "";
-    const secretKey = process.env.KPAY_SECRET_KEY || "";
+      description: invoice.invoice.description || `Facture ${invoiceId}`,
+      clientId: req.user.id,
+      garageId: invoice.invoice.garageId,
+      status: "PENDING"
+    });
     const kpayRes = await fetch(`${baseUrl}/api/v1/payments/init`, {
       method: "POST",
       headers: {
@@ -47354,32 +47576,131 @@ router14.post("/pay", async (req, res) => {
         "X-API-Key": apiKey,
         "X-Secret-Key": secretKey
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        amount: invoice.invoice.amount,
+        phoneNumber,
+        provider,
+        externalId,
+        description: invoice.invoice.description || `Facture ${invoiceId}`
+      })
     });
     const responseText = await kpayRes.text();
-    console.log("\u{1F4E1} [KPAY STATUS & REPONSE]:", kpayRes.status, responseText);
     if (!kpayRes.ok) {
-      return res.status(kpayRes.status).json({
-        error: "\xC9chec du paiement KPay",
-        details: responseText
+      await db.update(kpayPaymentsTable).set({ status: "FAILED" }).where(eq(kpayPaymentsTable.externalId, externalId));
+      await db.update(invoicesTable).set({ status: "failed" }).where(eq(invoicesTable.id, invoiceId));
+      return res.status(502).json({ error: "\xC9chec de l'initialisation du paiement." });
+    }
+    return res.status(202).json({
+      status: "pending",
+      invoiceId,
+      externalId,
+      provider,
+      amount: invoice.invoice.amount,
+      currency: invoice.invoice.currency,
+      garage: { id: invoice.garage.id, name: invoice.garage.name },
+      kpay: (() => {
+        try {
+          return JSON.parse(responseText);
+        } catch {
+          return void 0;
+        }
+      })()
+    });
+  } catch (error) {
+    req.log?.error({ err: error }, "KPay payment initialization failed");
+    return res.status(500).json({ error: "Erreur serveur pendant le paiement." });
+  }
+});
+router14.post("/webhook", rateLimit({ keyPrefix: "kpay-webhook", windowMs: 6e4, max: 120 }), async (req, res) => {
+  const rawBody = req.rawBody;
+  const secret = process.env.KPAY_WEBHOOK_SECRET || process.env.KPAY_SECRET_KEY || "";
+  const signature = String(req.header("x-kpay-signature") || req.header("x-signature") || "");
+  if (!rawBody || !signatureMatches(rawBody, signature, secret)) {
+    return res.status(401).json({ error: "Signature webhook invalide." });
+  }
+  const payload = req.body;
+  const externalId = typeof payload.externalId === "string" ? payload.externalId : "";
+  if (!externalId) return res.status(400).json({ error: "R\xE9f\xE9rence de paiement absente." });
+  const normalizedStatus = String(payload.status ?? "").toUpperCase();
+  const isPaid = payload.success === true || ["SUCCESS", "SUCCEEDED", "PAID", "COMPLETED"].includes(normalizedStatus);
+  const isFailed = ["FAILED", "FAILURE", "DECLINED", "CANCELLED", "EXPIRED"].includes(normalizedStatus);
+  try {
+    const [payment] = await db.select().from(kpayPaymentsTable).where(eq(kpayPaymentsTable.externalId, externalId));
+    if (!payment) return res.status(404).json({ error: "Paiement inconnu." });
+    if (payment.status === "PAID" || payment.status === "FAILED") return res.status(200).json({ ok: true, idempotent: true });
+    const transactionId = typeof payload.transactionId === "string" ? payload.transactionId : payment.transactionId;
+    if (isPaid) {
+      const webhookAmount = payload.amount == null ? Number(payment.amount) : Number(payload.amount);
+      if (!Number.isFinite(webhookAmount) || webhookAmount !== Number(payment.amount)) {
+        return res.status(409).json({ error: "Montant webhook incoh\xE9rent." });
+      }
+      await db.transaction(async (tx) => {
+        await tx.update(kpayPaymentsTable).set({ status: "PAID", transactionId, paidAt: /* @__PURE__ */ new Date(), rawWebhookPayload: payload }).where(and(eq(kpayPaymentsTable.id, payment.id), eq(kpayPaymentsTable.status, "PENDING")));
+        await tx.update(invoicesTable).set({ status: "paid", paidAt: /* @__PURE__ */ new Date(), kpayTransactionId: transactionId }).where(and(eq(invoicesTable.id, payment.invoiceId), eq(invoicesTable.status, "pending")));
       });
+    } else if (isFailed) {
+      await db.transaction(async (tx) => {
+        await tx.update(kpayPaymentsTable).set({ status: "FAILED", transactionId, rawWebhookPayload: payload }).where(and(eq(kpayPaymentsTable.id, payment.id), eq(kpayPaymentsTable.status, "PENDING")));
+        await tx.update(invoicesTable).set({ status: "failed" }).where(and(eq(invoicesTable.id, payment.invoiceId), eq(invoicesTable.status, "pending")));
+      });
+    } else {
+      return res.status(202).json({ ok: true, ignored: true });
     }
-    let kpayData;
-    try {
-      kpayData = JSON.parse(responseText);
-    } catch (e) {
-      kpayData = { success: true, raw: responseText };
-    }
-    return res.status(200).json(kpayData);
-  } catch (err) {
-    console.error("\u274C [KPAY ERROR]:", err);
-    return res.status(500).json({ error: "Erreur serveur" });
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    req.log?.error({ err: error }, "KPay webhook processing failed");
+    return res.status(500).json({ error: "Webhook non trait\xE9." });
   }
 });
 var kpay_default = router14;
 
-// src/routes/momo.ts
+// src/routes/invoices.ts
 var import_express16 = __toESM(require_express2(), 1);
+var router15 = (0, import_express16.Router)();
+function validInvoiceId(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+router15.post("/invoices", rateLimit({ keyPrefix: "invoice-create", windowMs: 60 * 6e4, max: 30 }), async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Authentification requise." });
+  const garageId = Number(req.body?.garageId);
+  const amount = Number(req.body?.amount);
+  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+  if (!Number.isInteger(garageId) || garageId <= 0 || !Number.isInteger(amount) || amount < 100 || amount > 1e8 || !description || description.length > 500) {
+    return res.status(400).json({ error: "Donn\xE9es de facture invalides." });
+  }
+  const [garage] = await db.select().from(garagesTable).where(and(eq(garagesTable.id, garageId), eq(garagesTable.ownerId, req.user.id)));
+  if (!garage) return res.status(403).json({ error: "Vous ne pouvez pas cr\xE9er une facture pour ce garage." });
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3);
+  const [invoice] = await db.insert(invoicesTable).values({ garageId, amount, description, currency: "XAF", expiresAt, status: "issued" }).returning();
+  return res.status(201).json({ invoiceId: invoice.id, amount: invoice.amount, currency: invoice.currency, description: invoice.description, garage: { id: garage.id, name: garage.name }, status: invoice.status, expiresAt: invoice.expiresAt });
+});
+router15.get("/invoices/:invoiceId", async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Authentification requise." });
+  const rawInvoiceId = req.params.invoiceId;
+  const invoiceId = Array.isArray(rawInvoiceId) ? rawInvoiceId[0] ?? "" : rawInvoiceId;
+  if (!validInvoiceId(invoiceId)) return res.status(400).json({ error: "Identifiant de facture invalide." });
+  const [row] = await db.select({ invoice: invoicesTable, garage: garagesTable }).from(invoicesTable).innerJoin(garagesTable, eq(garagesTable.id, invoicesTable.garageId)).where(eq(invoicesTable.id, invoiceId));
+  if (!row) return res.status(404).json({ error: "Facture introuvable." });
+  if (row.invoice.clientId && row.invoice.clientId !== req.user.id && row.garage.ownerId !== req.user.id) return res.status(404).json({ error: "Facture introuvable." });
+  if (row.invoice.status !== "paid" && row.invoice.expiresAt.getTime() <= Date.now()) {
+    await db.update(invoicesTable).set({ status: "expired" }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.status, row.invoice.status)));
+    row.invoice.status = "expired";
+  }
+  return res.json({ invoiceId: row.invoice.id, amount: row.invoice.amount, currency: row.invoice.currency, description: row.invoice.description, status: row.invoice.status, expiresAt: row.invoice.expiresAt, garage: { id: row.garage.id, name: row.garage.name } });
+});
+router15.get("/invoices/:invoiceId/status", rateLimit({ keyPrefix: "invoice-status", windowMs: 6e4, max: 30 }), async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Authentification requise." });
+  const rawInvoiceId = req.params.invoiceId;
+  const invoiceId = Array.isArray(rawInvoiceId) ? rawInvoiceId[0] ?? "" : rawInvoiceId;
+  if (!validInvoiceId(invoiceId)) return res.status(400).json({ error: "Identifiant de facture invalide." });
+  const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, invoiceId));
+  if (!invoice || invoice.clientId && invoice.clientId !== req.user.id) return res.status(404).json({ error: "Facture introuvable." });
+  return res.json({ invoiceId: invoice.id, status: invoice.status, paidAt: invoice.paidAt, expiresAt: invoice.expiresAt });
+});
+var invoices_default = router15;
+
+// src/routes/momo.ts
+var import_express17 = __toESM(require_express2(), 1);
 
 // src/lib/phoneVerification.ts
 var BASE_URL = process.env.INFOBIP_BASE_URL;
@@ -47430,7 +47751,7 @@ async function verifyPin(pinId, userCode) {
 }
 
 // src/routes/momo.ts
-var router15 = (0, import_express16.Router)();
+var router16 = (0, import_express17.Router)();
 var pinIdStore = /* @__PURE__ */ new Map();
 function validateMomoNumber(phoneNumber, provider) {
   const local = phoneNumber.replace(/[\s\-]/g, "").replace(/^\+242/, "");
@@ -47454,7 +47775,7 @@ function validateMomoNumber(phoneNumber, provider) {
   }
   return { valid: true };
 }
-router15.post(
+router16.post(
   "/momo/send-verification-otp",
   async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -47491,7 +47812,7 @@ router15.post(
     });
   }
 );
-router15.post("/momo/verify-and-save", async (req, res) => {
+router16.post("/momo/verify-and-save", async (req, res) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Authentication required." });
     return;
@@ -47571,12 +47892,12 @@ router15.post("/momo/verify-and-save", async (req, res) => {
     message: "Compte Mobile Money v\xE9rifi\xE9 et li\xE9 avec succ\xE8s."
   });
 });
-var momo_default = router15;
+var momo_default = router16;
 
 // src/routes/phoneAuth.ts
-var import_express17 = __toESM(require_express2(), 1);
-var router16 = (0, import_express17.Router)();
-router16.post("/auth/phone/send-code", async (req, res) => {
+var import_express18 = __toESM(require_express2(), 1);
+var router17 = (0, import_express18.Router)();
+router17.post("/auth/phone/send-code", async (req, res) => {
   const { phoneNumber } = req.body;
   if (!phoneNumber || !/^\+?\d{8,15}$/.test(phoneNumber)) {
     return res.status(400).json({ error: "Num\xE9ro de t\xE9l\xE9phone invalide" });
@@ -47589,7 +47910,7 @@ router16.post("/auth/phone/send-code", async (req, res) => {
     return res.status(500).json({ error: "\xC9chec de l'envoi du code" });
   }
 });
-router16.post("/auth/phone/verify-code", async (req, res) => {
+router17.post("/auth/phone/verify-code", async (req, res) => {
   const { pinId, code } = req.body;
   if (!pinId || !code) {
     return res.status(400).json({ error: "pinId et code requis" });
@@ -47609,27 +47930,28 @@ router16.post("/auth/phone/verify-code", async (req, res) => {
     return res.status(500).json({ error: "\xC9chec de la v\xE9rification" });
   }
 });
-var phoneAuth_default = router16;
+var phoneAuth_default = router17;
 
 // src/routes/index.ts
-var router17 = (0, import_express18.Router)();
-router17.use(health_default);
-router17.use(auth_default);
-router17.use(upload_default);
-router17.use(storage_default);
-router17.use(images_default);
-router17.use(profile_default);
-router17.use(stats_default);
-router17.use(garages_default);
-router17.use(reviews_default);
-router17.use(favorites_default);
-router17.use(messages_default);
-router17.use(notifications_default);
-router17.use(certification_default);
-router17.use("/kpay", kpay_default);
-router17.use(momo_default);
-router17.use(phoneAuth_default);
-var routes_default = router17;
+var router18 = (0, import_express19.Router)();
+router18.use(health_default);
+router18.use(auth_default);
+router18.use(upload_default);
+router18.use(storage_default);
+router18.use(images_default);
+router18.use(profile_default);
+router18.use(stats_default);
+router18.use(garages_default);
+router18.use(reviews_default);
+router18.use(favorites_default);
+router18.use(messages_default);
+router18.use(notifications_default);
+router18.use(certification_default);
+router18.use(invoices_default);
+router18.use("/kpay", kpay_default);
+router18.use(momo_default);
+router18.use(phoneAuth_default);
+var routes_default = router18;
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -47679,7 +48001,7 @@ async function authMiddleware(req, res, next) {
 }
 
 // src/app.ts
-var app = (0, import_express19.default)();
+var app = (0, import_express20.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -47701,8 +48023,14 @@ app.use(
 );
 app.use((0, import_cors.default)({ credentials: true, origin: true }));
 app.use((0, import_cookie_parser.default)());
-app.use(import_express19.default.json());
-app.use(import_express19.default.urlencoded({ extended: true }));
+app.use(
+  import_express20.default.json({
+    verify: (req, _res, buffer) => {
+      req.rawBody = Buffer.from(buffer);
+    }
+  })
+);
+app.use(import_express20.default.urlencoded({ extended: true }));
 app.use(authMiddleware);
 app.use("/api", routes_default);
 app.use((err, req, res, _next) => {

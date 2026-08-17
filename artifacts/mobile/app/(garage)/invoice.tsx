@@ -21,9 +21,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import * as SecureStore from "expo-secure-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CheckCircle, QrCode, Smartphone, RotateCcw, X, ChevronDown } from "lucide-react-native";
-// Link2 imported directly — barrel re-exports `default as Link2` twice which Hermes drops
-import Link2 from "lucide-react-native/dist/esm/icons/link-2.mjs";
+import { CheckCircle, QrCode, Smartphone, RotateCcw, X, ChevronDown, Link2 } from "lucide-react-native";
 import { useG, type GarageTheme } from "./_layout";
 import { useGetMyGarage } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
@@ -358,50 +356,46 @@ export default function CreateInvoiceScreen() {
     if (err) { setErrorMsg(err); return; }
     setErrorMsg("");
 
-    if (mode === "qr") {
-      // Build QR payload (payment intent data)
-      const payload = JSON.stringify({
-        garage: myGarage.data?.name ?? "Garage",
-        garageId: myGarage.data?.id,
-        description: description.trim(),
-        amount,
-        currency: "FCFA",
-        externalId: `INV-${Date.now()}`,
-      });
-      setQrPayload(payload);
-      setStatus("pending");
-      // In production, poll backend for confirmation.
-      // For demo, simulate after 4s.
-      setTimeout(() => setStatus("success"), 4000);
-      return;
-    }
-
-    // Mode push → KPay API
     setStatus("pending");
     try {
+      const garageId = myGarage.data?.id;
+      if (!garageId) throw new Error("Garage introuvable.");
       const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
-      const res = await fetch(`${getApiBase()}/api/kpay/pay`, {
+      const invoiceRes = await fetch(`${getApiBase()}/api/invoices`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ garageId, amount, description: description.trim() }),
+      });
+      const invoice = await invoiceRes.json().catch(() => null);
+      if (!invoiceRes.ok || typeof invoice?.invoiceId !== "string") {
+        throw new Error(invoice?.error ?? `Erreur ${invoiceRes.status}`);
+      }
+
+      if (mode === "qr") {
+        setQrPayload(JSON.stringify({ invoiceId: invoice.invoiceId }));
+        setStatus("pending");
+        return;
+      }
+
+      const paymentRes = await fetch(`${getApiBase()}/api/kpay/pay`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          amount,
+          invoiceId: invoice.invoiceId,
           phoneNumber: `242${phone}`,
           provider: provider ? toCongoApiProvider(provider) : undefined,
-          externalId: `INV-${Date.now()}`,
-          description: description.trim(),
-          garageId: myGarage.data?.id ?? null,
         }),
       });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? `Erreur ${res.status}`);
-      }
-      // Success (or KPay accepted the init — real polling omitted)
-      setStatus("success");
+      const payment = await paymentRes.json().catch(() => null);
+      if (!paymentRes.ok) throw new Error(payment?.error ?? `Erreur ${paymentRes.status}`);
+      if (payment.status === "failed") throw new Error("Le paiement a été refusé.");
+      setStatus("pending");
     } catch (e) {
       setStatus("error");
       setErrorMsg(e instanceof Error ? e.message : "Erreur inconnue.");
@@ -414,30 +408,38 @@ export default function CreateInvoiceScreen() {
     if (!amount || amount < 100) { setErrorMsg("Le montant minimum est 100 FCFA."); return; }
     setErrorMsg("");
 
-    const garageId = myGarage.data?.id ?? "";
+    const garageId = myGarage.data?.id;
     const garageName = myGarage.data?.name ?? "Garage";
-
-    const shareUrl =
-      `https://wapigarage.app/pay` +
-      `?garageId=${garageId}` +
-      `&amount=${amount}` +
-      `&description=${encodeURIComponent(description.trim())}` +
-      `&garageName=${encodeURIComponent(garageName)}`;
-
-    const shareMessage =
-      `🧾 *Facture Wapi Garage*\n\n` +
-      `Bonjour, votre véhicule est prêt chez *${garageName}* !\n\n` +
-      `🔧 Prestation : ${description.trim()}\n` +
-      `💰 Montant : ${amount} FCFA\n\n` +
-      `Cliquez sur le lien ci-dessous pour régler votre facture directement dans l'application :\n\n` +
-      `${shareUrl}\n\n` +
-      `_Facture enregistrée dans votre carnet d'entretien numérique._`;
+    if (!garageId) { setErrorMsg("Garage introuvable."); return; }
 
     try {
+      const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+      const invoiceRes = await fetch(`${getApiBase()}/api/invoices`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ garageId, amount, description: description.trim() }),
+      });
+      const invoice = await invoiceRes.json().catch(() => null);
+      if (!invoiceRes.ok || typeof invoice?.invoiceId !== "string") throw new Error(invoice?.error ?? "Impossible de créer la facture.");
+      const shareUrl = `https://wapigarage.app/pay?invoiceId=${encodeURIComponent(invoice.invoiceId)}`;
+      const shareMessage =
+        `🧾 *Facture Wapi Garage*\n\n` +
+        `Bonjour, votre véhicule est prêt chez *${garageName}* !\n\n` +
+        `🔧 Prestation : ${description.trim()}\n` +
+        `💰 Montant : ${amount} FCFA\n\n` +
+        `Cliquez sur le lien ci-dessous pour régler votre facture directement dans l'application :\n\n` +
+        `${shareUrl}\n\n` +
+        `_Facture enregistrée dans votre carnet d'entretien numérique._`;
+
       await Share.share({ message: shareMessage });
-    } catch {
-      // user cancelled — do nothing
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Impossible de partager la facture.");
     }
+    return;
+
   };
 
   const handleReset = () => {

@@ -12,11 +12,17 @@ import {
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 import { garagesTable } from "./garages";
+import { invoicesTable } from "./invoices";
 
 // ─── KPay payments ───────────────────────────────────────────────────────────
 
 export const kpayPaymentsTable = pgTable("kpay_payments", {
   id: serial("id").primaryKey(),
+
+  /** Invoice that authorizes this payment. */
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoicesTable.id, { onDelete: "cascade" }),
 
   /** Unique ID we generated and sent to KPay — used to reconcile webhooks. */
   externalId: varchar("external_id").notNull().unique(),

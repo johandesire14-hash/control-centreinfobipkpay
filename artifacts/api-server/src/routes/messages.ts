@@ -10,6 +10,7 @@ import {
   SendMessageResponse,
   MarkConversationReadResponse,
 } from "@workspace/api-zod";
+import { rateLimit } from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 
@@ -96,7 +97,7 @@ router.get("/conversations", async (req: Request, res: Response) => {
   );
 });
 
-router.post("/conversations", async (req: Request, res: Response) => {
+router.post("/conversations", rateLimit({ keyPrefix: "conversation-create", windowMs: 60 * 60_000, max: 20 }), async (req: Request, res: Response) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
     return;
@@ -182,7 +183,7 @@ router.get("/conversations/:conversationId/messages", async (req: Request, res: 
   );
 });
 
-router.post("/conversations/:conversationId/messages", async (req: Request, res: Response) => {
+router.post("/conversations/:conversationId/messages", rateLimit({ keyPrefix: "message-send", windowMs: 60 * 60_000, max: 120 }), async (req: Request, res: Response) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
     return;

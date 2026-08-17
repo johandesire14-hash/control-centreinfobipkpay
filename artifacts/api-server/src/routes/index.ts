@@ -13,6 +13,7 @@ import notificationsRouter from "./notifications";
 import certificationRouter from "./certification";
 import uploadRouter from "./upload";
 import kpayRouter from "./kpay";
+import invoicesRouter from "./invoices";
 import momoRouter from "./momo";
 import phoneAuthRouter from "./phoneAuth";
 
@@ -30,6 +31,7 @@ router.use(favoritesRouter);
 router.use(messagesRouter);
 router.use(notificationsRouter);
 router.use(certificationRouter);
+router.use(invoicesRouter);
 router.use("/kpay", kpayRouter);
 router.use(momoRouter);
 router.use(phoneAuthRouter);

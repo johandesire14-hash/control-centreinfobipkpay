@@ -55,6 +55,23 @@ export declare const reviewsTable: import("drizzle-orm/pg-core").PgTableWithColu
         }, {}, {
             length: number | undefined;
         }>;
+        invoiceId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "invoice_id";
+            tableName: "reviews";
+            dataType: "string";
+            columnType: "PgUUID";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         rating: import("drizzle-orm/pg-core").PgColumn<{
             name: "rating";
             tableName: "reviews";

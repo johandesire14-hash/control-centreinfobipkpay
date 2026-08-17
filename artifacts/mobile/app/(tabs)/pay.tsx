@@ -60,11 +60,13 @@ function maskPhone(phone: string) {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface QRPayload {
+  invoiceId: string;
   garage: string;
   garageId?: number;
   description: string;
   amount: number;
-  externalId: string;
+  externalId?: string;
+  status?: string;
 }
 
 interface PaymentMethod {
@@ -215,18 +217,8 @@ export default function ScanAndPayScreen() {
   const { isAuthenticated, user } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
 
-  // Deep-link params (wapigarage://pay?garageId=...&amount=...&description=...&garageName=...)
-  const {
-    garageId: dlGarageId,
-    amount: dlAmount,
-    description: dlDescription,
-    garageName: dlGarageName,
-  } = useLocalSearchParams<{
-    garageId?: string;
-    amount?: string;
-    description?: string;
-    garageName?: string;
-  }>();
+  // Deep-link params contain only the opaque invoiceId.
+  const { invoiceId: dlInvoiceId } = useLocalSearchParams<{ invoiceId?: string }>();
 
   const [step, setStep] = useState<Step>("scanner");
   const [scanned, setScanned] = useState(false);
@@ -239,20 +231,21 @@ export default function ScanAndPayScreen() {
   const slideAnim = useRef(new Animated.Value(40)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Open confirm modal directly when deep-link params are present
-  useEffect(() => {
-    if (!dlAmount || !dlGarageName) return;
-    const amt = parseInt(dlAmount, 10);
-    if (isNaN(amt) || amt < 1) return;
-    // Only auto-trigger on initial mount (step is still "scanner" and nothing scanned)
-    if (scanned) return;
-
+  const openInvoice = useCallback(async (invoiceId: string) => {
+    const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+    const res = await fetch(`${getApiBase()}/api/invoices/${encodeURIComponent(invoiceId)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || typeof data?.invoiceId !== "string") throw new Error(data?.error ?? "Facture introuvable.");
+    if (data.status === "paid" || data.status === "expired" || data.status === "cancelled") throw new Error("Cette facture ne peut plus être payée.");
     const p: QRPayload = {
-      garage: dlGarageName,
-      garageId: dlGarageId ? parseInt(dlGarageId, 10) : undefined,
-      description: dlDescription ?? "",
-      amount: amt,
-      externalId: `INV-${Date.now()}`,
+      invoiceId: data.invoiceId,
+      garage: data.garage?.name ?? "Garage",
+      garageId: typeof data.garage?.id === "number" ? data.garage.id : undefined,
+      description: data.description ?? "",
+      amount: Number(data.amount),
+      status: data.status,
     };
     setPayload(p);
     setScanned(true);
@@ -260,20 +253,18 @@ export default function ScanAndPayScreen() {
     slideAnim.setValue(40);
     fadeAnim.setValue(0);
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        easing: Easing.out(Easing.back(1.2)),
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 280,
-        useNativeDriver: true,
-      }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 300, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
     ]).start();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dlAmount, dlGarageName]);
+  }, [fadeAnim, slideAnim]);
+
+  useEffect(() => {
+    if (!dlInvoiceId || scanned) return;
+    openInvoice(dlInvoiceId).catch((error) => {
+      setErrorMsg(error instanceof Error ? error.message : "Facture introuvable.");
+      setStep("error");
+    });
+  }, [dlInvoiceId, openInvoice, scanned]);
 
   // Load saved payment method
   useEffect(() => {
@@ -290,32 +281,17 @@ export default function ScanAndPayScreen() {
     ({ data }: { data: string }) => {
       if (scanned) return;
       try {
-        const parsed = JSON.parse(data) as Partial<QRPayload>;
-        if (!parsed.amount || !parsed.garage) throw new Error("invalid");
-        setScanned(true);
-        setPayload(parsed as QRPayload);
-        setStep("confirm");
-        // Animate modal content in
-        slideAnim.setValue(40);
-        fadeAnim.setValue(0);
-        Animated.parallel([
-          Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 300,
-            easing: Easing.out(Easing.back(1.2)),
-            useNativeDriver: true,
-          }),
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 280,
-            useNativeDriver: true,
-          }),
-        ]).start();
+        const parsed = JSON.parse(data) as { invoiceId?: unknown };
+        if (typeof parsed.invoiceId !== "string" || !parsed.invoiceId) throw new Error("invalid");
+        void openInvoice(parsed.invoiceId).catch((error) => {
+          setErrorMsg(error instanceof Error ? error.message : "Facture introuvable.");
+          setStep("error");
+        });
       } catch {
         // Not a Wapi invoice QR — keep scanning
       }
     },
-    [scanned, slideAnim, fadeAnim],
+    [scanned, openInvoice],
   );
 
   const resetScanner = () => {
@@ -339,19 +315,27 @@ export default function ScanAndPayScreen() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          amount: payload.amount,
+          invoiceId: payload.invoiceId,
           phoneNumber: pm.phone,
           provider: pm.operator,
-          externalId: payload.externalId,
-          description: payload.description,
-          garageId: payload.garageId ?? null,
-          clientId: user?.id ?? null,
         }),
       });
       if (!res.ok) {
         const d = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(d.error ?? `Erreur ${res.status}`);
       }
+      const initial = (await res.json().catch(() => ({}))) as { status?: string; externalId?: string };
+      if (initial.externalId) setPayload((current) => current ? { ...current, externalId: initial.externalId, status: initial.status } : current);
+      let status = initial.status;
+      for (let attempt = 0; attempt < 12 && status === "pending"; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        const statusRes = await fetch(`${getApiBase()}/api/invoices/${encodeURIComponent(payload.invoiceId)}/status`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const statusData = (await statusRes.json().catch(() => ({}))) as { status?: string };
+        status = statusData.status;
+      }
+      if (status !== "paid") throw new Error(status === "expired" ? "La facture a expiré." : "Le paiement est encore en attente ou a échoué.");
       setPaidAt(new Date().toISOString());
       setStep("success");
     } catch (e) {
@@ -451,7 +435,8 @@ export default function ScanAndPayScreen() {
                 garageId: payload.garageId != null ? String(payload.garageId) : "",
                 description: payload.description,
                 amount: String(payload.amount),
-                externalId: payload.externalId,
+                externalId: payload.externalId ?? payload.invoiceId,
+                invoiceId: payload.invoiceId,
                 paidAt: paidAt || new Date().toISOString(),
               });
               router.push(`/receipt?${params.toString()}`);

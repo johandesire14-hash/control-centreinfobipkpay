@@ -150,11 +150,13 @@ function LeaveReviewModal({
   visible,
   garageName,
   garageId,
+  invoiceId,
   onClose,
 }: {
   visible: boolean;
   garageName: string;
   garageId: number | null;
+  invoiceId: string;
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -215,6 +217,7 @@ function LeaveReviewModal({
             honestyRating: rating,
             punctualityRating: rating,
             valueRating: rating,
+            invoiceId,
           }),
         },
       );
@@ -342,11 +345,11 @@ function LeaveReviewModal({
 
                 {/* Submit */}
                 <Pressable
-                  onPress={garageId ? handleSubmit : undefined}
+                  onPress={garageId && invoiceId ? handleSubmit : undefined}
                   style={({ pressed }) => [
                     S.submitBtn,
-                    !garageId && { opacity: 0.38 },
-                    pressed && garageId && { opacity: 0.88 },
+                    (!garageId || !invoiceId) && { opacity: 0.38 },
+                    pressed && !!garageId && !!invoiceId && { opacity: 0.88 },
                     submitting && { opacity: 0.6 },
                   ]}
                   disabled={submitting}
@@ -386,6 +389,7 @@ export default function ReceiptScreen() {
   const params = useLocalSearchParams<{
     garage: string;
     garageId: string;
+    invoiceId?: string;
     description: string;
     amount: string;
     externalId: string;
@@ -394,6 +398,7 @@ export default function ReceiptScreen() {
 
   const garage = params.garage ?? "Garage";
   const garageId = params.garageId ? Number(params.garageId) : null;
+  const invoiceId = params.invoiceId ?? "";
   const description = params.description ?? "";
   const amount = params.amount ? Number(params.amount) : 0;
   const externalId = params.externalId ?? "";
@@ -565,6 +570,7 @@ export default function ReceiptScreen() {
         visible={showReview}
         garageName={garage}
         garageId={garageId}
+        invoiceId={invoiceId}
         onClose={() => setShowReview(false)}
       />
     </View>

@@ -68,7 +68,6 @@ export default function OnboardingProfileScreen() {
           firstName:            firstName.trim(),
           phone,
           accountType:          accountType!,
-          onboardingCompleted:  true,
         },
       },
       {
