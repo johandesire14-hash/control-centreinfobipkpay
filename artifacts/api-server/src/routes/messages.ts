@@ -11,6 +11,7 @@ import {
   MarkConversationReadResponse,
 } from "@workspace/api-zod";
 import { rateLimit } from "../middlewares/rateLimit";
+import { positiveIntParam } from "../lib/routeParams";
 
 const router: IRouter = Router();
 
@@ -148,7 +149,11 @@ router.get("/conversations/:conversationId/messages", async (req: Request, res: 
     return;
   }
 
-  const conversationId = Number(req.params.conversationId);
+  const conversationId = positiveIntParam(req.params.conversationId);
+  if (conversationId === null) {
+    res.status(400).json({ error: "Identifiant de conversation invalide" });
+    return;
+  }
   const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
   if (!conversation) {
     res.status(403).json({ error: "Not a participant in this conversation" });
@@ -189,7 +194,11 @@ router.post("/conversations/:conversationId/messages", rateLimit({ keyPrefix: "m
     return;
   }
 
-  const conversationId = Number(req.params.conversationId);
+  const conversationId = positiveIntParam(req.params.conversationId);
+  if (conversationId === null) {
+    res.status(400).json({ error: "Identifiant de conversation invalide" });
+    return;
+  }
   const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
   if (!conversation) {
     res.status(403).json({ error: "Not a participant in this conversation" });
@@ -256,7 +265,11 @@ router.patch("/conversations/:conversationId/read", async (req: Request, res: Re
     return;
   }
 
-  const conversationId = Number(req.params.conversationId);
+  const conversationId = positiveIntParam(req.params.conversationId);
+  if (conversationId === null) {
+    res.status(400).json({ error: "Identifiant de conversation invalide" });
+    return;
+  }
   const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
   if (!conversation) {
     res.status(403).json({ error: "Not a participant in this conversation" });
@@ -291,7 +304,11 @@ router.delete("/conversations/:conversationId", async (req: Request, res: Respon
     return;
   }
 
-  const conversationId = Number(req.params.conversationId);
+  const conversationId = positiveIntParam(req.params.conversationId);
+  if (conversationId === null) {
+    res.status(400).json({ error: "Identifiant de conversation invalide" });
+    return;
+  }
   const [conversation] = await db
     .select()
     .from(conversationsTable)

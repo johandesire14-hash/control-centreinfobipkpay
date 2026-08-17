@@ -6,6 +6,7 @@ import {
   MarkAllNotificationsReadResponse,
   MarkNotificationReadResponse,
 } from "@workspace/api-zod";
+import { positiveIntParam } from "../lib/routeParams";
 const router: IRouter = Router();
 
 router.get("/notifications", async (req: Request, res: Response) => {
@@ -48,7 +49,11 @@ router.patch("/notifications/:notificationId/read", async (req: Request, res: Re
     return;
   }
 
-  const notificationId = Number(req.params.notificationId);
+  const notificationId = positiveIntParam(req.params.notificationId);
+  if (notificationId === null) {
+    res.status(400).json({ error: "Identifiant de notification invalide" });
+    return;
+  }
   const [updated] = await db
     .update(notificationsTable)
     .set({ read: true })
@@ -100,7 +105,11 @@ router.delete("/notifications/:notificationId", async (req: Request, res: Respon
     return;
   }
 
-  const notificationId = Number(req.params.notificationId);
+  const notificationId = positiveIntParam(req.params.notificationId);
+  if (notificationId === null) {
+    res.status(400).json({ error: "Identifiant de notification invalide" });
+    return;
+  }
   await db
     .delete(notificationsTable)
     .where(and(eq(notificationsTable.id, notificationId), eq(notificationsTable.userId, req.user.id)));

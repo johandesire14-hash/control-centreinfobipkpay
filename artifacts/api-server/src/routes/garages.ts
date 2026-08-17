@@ -17,6 +17,7 @@ import {
   DeleteGaragePhotoResponse,
 } from "@workspace/api-zod";
 import { toGarageDetail, toGarageSummary } from "../lib/garageSerializers";
+import { positiveIntParam } from "../lib/routeParams";
 
 const router: IRouter = Router();
 
@@ -64,7 +65,8 @@ router.get("/garages", async (req: Request, res: Response) => {
 });
 
 router.get("/garages/top-rated", async (req: Request, res: Response) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 10;
+  const requestedLimit = req.query.limit ? Number(req.query.limit) : 10;
+  const limit = Number.isSafeInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 50) : 10;
   const garages = await db.select().from(garagesTable).orderBy(desc(garagesTable.createdAt));
   const summaries = await Promise.all(garages.map((g) => toGarageSummary(g, req.user?.id)));
   summaries.sort((a, b) => b.averageRating - a.averageRating);
@@ -72,7 +74,8 @@ router.get("/garages/top-rated", async (req: Request, res: Response) => {
 });
 
 router.get("/garages/certified", async (req: Request, res: Response) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 10;
+  const requestedLimit = req.query.limit ? Number(req.query.limit) : 10;
+  const limit = Number.isSafeInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 50) : 10;
   const garages = await db
     .select()
     .from(garagesTable)
@@ -150,7 +153,11 @@ router.post("/garages", async (req: Request, res: Response) => {
 });
 
 router.get("/garages/:garageId", async (req: Request, res: Response) => {
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage) {
     res.status(404).json({ error: "Garage not found" });
@@ -166,7 +173,11 @@ router.patch("/garages/:garageId", async (req: Request, res: Response) => {
     return;
   }
 
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage) {
     res.status(404).json({ error: "Garage not found" });
@@ -193,7 +204,11 @@ router.patch("/garages/:garageId", async (req: Request, res: Response) => {
 });
 
 router.get("/garages/:garageId/photos", async (req: Request, res: Response) => {
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const photos = await db
     .select()
     .from(garagePhotosTable)
@@ -213,7 +228,11 @@ router.post("/garages/:garageId/photos", async (req: Request, res: Response) => 
     return;
   }
 
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage || garage.ownerId !== req.user.id) {
     res.status(403).json({ error: "Not the garage owner" });
@@ -247,8 +266,16 @@ router.delete("/garages/:garageId/photos/:photoId", async (req: Request, res: Re
     return;
   }
 
-  const garageId = Number(req.params.garageId);
-  const photoId = Number(req.params.photoId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
+  const photoId = positiveIntParam(req.params.photoId);
+  if (photoId === null) {
+    res.status(400).json({ error: "Identifiant de photo invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage || garage.ownerId !== req.user.id) {
     res.status(403).json({ error: "Not the garage owner" });

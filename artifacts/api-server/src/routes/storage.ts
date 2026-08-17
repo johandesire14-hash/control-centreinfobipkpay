@@ -9,6 +9,7 @@ import {
   ObjectNotFoundError,
 } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { rateLimit } from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -22,6 +23,7 @@ const objectStorageService = new ObjectStorageService();
  */
 router.post(
   "/storage/uploads/request-url",
+  rateLimit({ keyPrefix: "storage-upload-url", windowMs: 60 * 60_000, max: 30 }),
   async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) {
       res.status(401).json({ error: "Unauthorized" });

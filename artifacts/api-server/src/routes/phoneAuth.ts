@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { sendVerificationPin, verifyPin } from "../lib/phoneVerification";
+import { rateLimit } from "../middlewares/rateLimit";
 
 const router = Router();
 
-router.post("/auth/phone/send-code", async (req, res) => {
+router.post("/auth/phone/send-code", rateLimit({ keyPrefix: "otp-send", windowMs: 15 * 60_000, max: 3 }), async (req, res) => {
   const { phoneNumber } = req.body;
 
   if (!phoneNumber || !/^\+?\d{8,15}$/.test(phoneNumber)) {
@@ -19,7 +20,7 @@ router.post("/auth/phone/send-code", async (req, res) => {
   }
 });
 
-router.post("/auth/phone/verify-code", async (req, res) => {
+router.post("/auth/phone/verify-code", rateLimit({ keyPrefix: "otp-verify", windowMs: 15 * 60_000, max: 8 }), async (req, res) => {
   const { pinId, code } = req.body;
 
   if (!pinId || !code) {

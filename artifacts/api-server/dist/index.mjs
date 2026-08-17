@@ -46418,6 +46418,7 @@ var router3 = (0, import_express3.Router)();
 var objectStorageService = new ObjectStorageService();
 router3.post(
   "/storage/uploads/request-url",
+  rateLimit({ keyPrefix: "storage-upload-url", windowMs: 60 * 6e4, max: 30 }),
   async (req, res) => {
     if (!req.isAuthenticated()) {
       res.status(401).json({ error: "Unauthorized" });
@@ -46777,6 +46778,14 @@ async function toGarageDetail(garage, currentUserId) {
   };
 }
 
+// src/lib/routeParams.ts
+function positiveIntParam(value) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw || !/^[1-9][0-9]*$/.test(raw)) return null;
+  const parsed = Number(raw);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 // src/routes/garages.ts
 var router7 = (0, import_express7.Router)();
 router7.get("/garages", async (req, res) => {
@@ -46812,14 +46821,16 @@ router7.get("/garages", async (req, res) => {
   res.json(ListGaragesResponse.parse(summaries));
 });
 router7.get("/garages/top-rated", async (req, res) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 10;
+  const requestedLimit = req.query.limit ? Number(req.query.limit) : 10;
+  const limit = Number.isSafeInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 50) : 10;
   const garages = await db.select().from(garagesTable).orderBy(desc(garagesTable.createdAt));
   const summaries = await Promise.all(garages.map((g) => toGarageSummary(g, req.user?.id)));
   summaries.sort((a, b) => b.averageRating - a.averageRating);
   res.json(ListTopRatedGaragesResponse.parse(summaries.slice(0, limit)));
 });
 router7.get("/garages/certified", async (req, res) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 10;
+  const requestedLimit = req.query.limit ? Number(req.query.limit) : 10;
+  const limit = Number.isSafeInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 50) : 10;
   const garages = await db.select().from(garagesTable).where(eq(garagesTable.certified, true)).orderBy(desc(garagesTable.createdAt)).limit(limit);
   const summaries = await Promise.all(garages.map((g) => toGarageSummary(g, req.user?.id)));
   res.json(ListCertifiedGaragesResponse.parse(summaries));
@@ -46877,7 +46888,11 @@ router7.post("/garages", async (req, res) => {
   res.status(201).json(CreateGarageResponse.parse(await toGarageDetail(garage, req.user.id)));
 });
 router7.get("/garages/:garageId", async (req, res) => {
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage) {
     res.status(404).json({ error: "Garage not found" });
@@ -46890,7 +46905,11 @@ router7.patch("/garages/:garageId", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage) {
     res.status(404).json({ error: "Garage not found" });
@@ -46909,7 +46928,11 @@ router7.patch("/garages/:garageId", async (req, res) => {
   res.json(UpdateGarageResponse.parse(await toGarageDetail(updated, req.user.id)));
 });
 router7.get("/garages/:garageId/photos", async (req, res) => {
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const photos = await db.select().from(garagePhotosTable).where(eq(garagePhotosTable.garageId, garageId)).orderBy(desc(garagePhotosTable.createdAt));
   res.json(
     ListGaragePhotosResponse.parse(
@@ -46922,7 +46945,11 @@ router7.post("/garages/:garageId/photos", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage || garage.ownerId !== req.user.id) {
     res.status(403).json({ error: "Not the garage owner" });
@@ -46948,8 +46975,16 @@ router7.delete("/garages/:garageId/photos/:photoId", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const garageId = Number(req.params.garageId);
-  const photoId = Number(req.params.photoId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
+  const photoId = positiveIntParam(req.params.photoId);
+  if (photoId === null) {
+    res.status(400).json({ error: "Identifiant de photo invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (!garage || garage.ownerId !== req.user.id) {
     res.status(403).json({ error: "Not the garage owner" });
@@ -47075,7 +47110,11 @@ router9.post("/garages/:garageId/favorite", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   const [garage] = await db.select().from(garagesTable).where(eq(garagesTable.id, garageId));
   if (garage?.ownerId === req.user.id) {
     res.status(403).json({ error: "Vous ne pouvez pas interagir avec votre propre garage." });
@@ -47089,7 +47128,11 @@ router9.delete("/garages/:garageId/favorite", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const garageId = Number(req.params.garageId);
+  const garageId = positiveIntParam(req.params.garageId);
+  if (garageId === null) {
+    res.status(400).json({ error: "Identifiant de garage invalide" });
+    return;
+  }
   await db.delete(favoritesTable).where(and(eq(favoritesTable.userId, req.user.id), eq(favoritesTable.garageId, garageId)));
   res.json(RemoveFavoriteResponse.parse({ garageId, isFavorite: false }));
 });
@@ -47182,7 +47225,11 @@ router10.get("/conversations/:conversationId/messages", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const conversationId = Number(req.params.conversationId);
+  const conversationId = positiveIntParam(req.params.conversationId);
+  if (conversationId === null) {
+    res.status(400).json({ error: "Identifiant de conversation invalide" });
+    return;
+  }
   const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
   if (!conversation) {
     res.status(403).json({ error: "Not a participant in this conversation" });
@@ -47214,7 +47261,11 @@ router10.post("/conversations/:conversationId/messages", rateLimit({ keyPrefix: 
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const conversationId = Number(req.params.conversationId);
+  const conversationId = positiveIntParam(req.params.conversationId);
+  if (conversationId === null) {
+    res.status(400).json({ error: "Identifiant de conversation invalide" });
+    return;
+  }
   const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
   if (!conversation) {
     res.status(403).json({ error: "Not a participant in this conversation" });
@@ -47267,7 +47318,11 @@ router10.patch("/conversations/:conversationId/read", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const conversationId = Number(req.params.conversationId);
+  const conversationId = positiveIntParam(req.params.conversationId);
+  if (conversationId === null) {
+    res.status(400).json({ error: "Identifiant de conversation invalide" });
+    return;
+  }
   const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
   if (!conversation) {
     res.status(403).json({ error: "Not a participant in this conversation" });
@@ -47290,7 +47345,11 @@ router10.delete("/conversations/:conversationId", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const conversationId = Number(req.params.conversationId);
+  const conversationId = positiveIntParam(req.params.conversationId);
+  if (conversationId === null) {
+    res.status(400).json({ error: "Identifiant de conversation invalide" });
+    return;
+  }
   const [conversation] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
   if (!conversation) {
     res.status(404).json({ error: "Not found" });
@@ -47342,7 +47401,11 @@ router11.patch("/notifications/:notificationId/read", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const notificationId = Number(req.params.notificationId);
+  const notificationId = positiveIntParam(req.params.notificationId);
+  if (notificationId === null) {
+    res.status(400).json({ error: "Identifiant de notification invalide" });
+    return;
+  }
   const [updated] = await db.update(notificationsTable).set({ read: true }).where(and(eq(notificationsTable.id, notificationId), eq(notificationsTable.userId, req.user.id))).returning();
   if (!updated) {
     res.status(404).json({ error: "Notification not found" });
@@ -47378,7 +47441,11 @@ router11.delete("/notifications/:notificationId", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const notificationId = Number(req.params.notificationId);
+  const notificationId = positiveIntParam(req.params.notificationId);
+  if (notificationId === null) {
+    res.status(400).json({ error: "Identifiant de notification invalide" });
+    return;
+  }
   await db.delete(notificationsTable).where(and(eq(notificationsTable.id, notificationId), eq(notificationsTable.userId, req.user.id)));
   res.json({ success: true });
 });
@@ -47897,7 +47964,7 @@ var momo_default = router16;
 // src/routes/phoneAuth.ts
 var import_express18 = __toESM(require_express2(), 1);
 var router17 = (0, import_express18.Router)();
-router17.post("/auth/phone/send-code", async (req, res) => {
+router17.post("/auth/phone/send-code", rateLimit({ keyPrefix: "otp-send", windowMs: 15 * 6e4, max: 3 }), async (req, res) => {
   const { phoneNumber } = req.body;
   if (!phoneNumber || !/^\+?\d{8,15}$/.test(phoneNumber)) {
     return res.status(400).json({ error: "Num\xE9ro de t\xE9l\xE9phone invalide" });
@@ -47910,7 +47977,7 @@ router17.post("/auth/phone/send-code", async (req, res) => {
     return res.status(500).json({ error: "\xC9chec de l'envoi du code" });
   }
 });
-router17.post("/auth/phone/verify-code", async (req, res) => {
+router17.post("/auth/phone/verify-code", rateLimit({ keyPrefix: "otp-verify", windowMs: 15 * 6e4, max: 8 }), async (req, res) => {
   const { pinId, code } = req.body;
   if (!pinId || !code) {
     return res.status(400).json({ error: "pinId et code requis" });
