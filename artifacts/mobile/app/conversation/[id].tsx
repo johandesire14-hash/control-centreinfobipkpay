@@ -253,7 +253,7 @@ export default function ConversationScreen() {
       <KeyboardAvoidingView
         style={[styles.screen, { backgroundColor: colors.background }]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 44 : 0}
+        keyboardVerticalOffset={0}
       >
         {messages.isLoading ? (
           <View style={styles.center}>
@@ -267,7 +267,6 @@ export default function ConversationScreen() {
             keyExtractor={(item) => String(item.id)}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
-            automaticallyAdjustKeyboardInsets
             contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 8 }}
             renderItem={({ item }) => {
               const mine = item.senderId === user?.id;
@@ -325,7 +324,7 @@ export default function ConversationScreen() {
         )}
 
         {/* Input bar */}
-        <View style={[styles.inputRow, { borderTopColor: colors.border, paddingBottom: insets.bottom + 10 }]}>
+        <View style={[styles.inputRow, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 10 }]}>
           {/* + attach button */}
           <Pressable
             onPress={() => setAttachOpen(true)}
