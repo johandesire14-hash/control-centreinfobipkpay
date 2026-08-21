@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { FileText, ImageIcon, Plus, Send, X } from "lucide-react-native";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -373,7 +374,11 @@ export default function ConversationScreen() {
           animationType="slide"
           onRequestClose={() => setQuoteFormOpen(false)}
         >
-          <View style={styles.modalBackdrop}>
+          <KeyboardAwareScrollViewCompat
+            style={styles.modalBackdrop}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={[styles.quoteSheet, { backgroundColor: colors.card }]}>
               <View style={styles.quoteHeader}>
                 <View style={{ flex: 1 }}>
@@ -407,7 +412,7 @@ export default function ConversationScreen() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </KeyboardAwareScrollViewCompat>
         </Modal>
 
         {/* Fullscreen image */}
