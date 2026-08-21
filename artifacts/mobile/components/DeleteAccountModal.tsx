@@ -7,7 +7,6 @@
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -18,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -82,17 +82,14 @@ export function DeleteAccountModal({
       transparent
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
 
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
           {/* Handle */}
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-          <ScrollView
+          <KeyboardAwareScrollViewCompat
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
@@ -200,9 +197,9 @@ export function DeleteAccountModal({
                 Annuler
               </Text>
             </Pressable>
-          </ScrollView>
+          </KeyboardAwareScrollViewCompat>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

@@ -13,7 +13,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -24,6 +23,7 @@ import {
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { useColors } from "@/hooks/useColors";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import {
   CongoPhoneInput,
   detectCongoOperator,
@@ -251,9 +251,10 @@ export function PaymentMethodModal({
       transparent
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollViewCompat
         style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1 }}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
 
@@ -463,7 +464,7 @@ export function PaymentMethodModal({
             </>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollViewCompat>
     </Modal>
   );
 }

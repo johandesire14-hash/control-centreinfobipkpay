@@ -6,7 +6,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -21,6 +20,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import * as SecureStore from "expo-secure-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useLocalSearchParams } from "expo-router";
 import { CheckCircle, QrCode, Smartphone, RotateCcw, X, ChevronDown } from "lucide-react-native";
 import { Link2 } from "lucide-react-native";
@@ -558,10 +558,7 @@ export default function CreateInvoiceScreen() {
 
   // ── FORM ──
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: G.bg }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
+    <View style={{ flex: 1, backgroundColor: G.bg }}>
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <Text style={s.headerTitle}>Nouvelle facture</Text>
@@ -570,7 +567,7 @@ export default function CreateInvoiceScreen() {
         ) : null}
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollViewCompat
         contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 100 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -704,8 +701,8 @@ export default function CreateInvoiceScreen() {
         {status === "error" ? (
           <Text style={[styles.errorText, { textAlign: "center" }]}>{errorMsg}</Text>
         ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollViewCompat>
+    </View>
   );
 }
 

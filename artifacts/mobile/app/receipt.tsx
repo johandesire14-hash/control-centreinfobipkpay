@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -22,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import * as SecureStore from "expo-secure-store";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import {
   BookOpen,
   CheckCircle,
@@ -247,10 +247,7 @@ function LeaveReviewModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <View style={{ flex: 1 }}>
         <View style={S.modalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
@@ -282,7 +279,7 @@ function LeaveReviewModal({
                 <ActivityIndicator size="small" color={GREEN_MED} style={{ marginTop: 8 }} />
               </View>
             ) : (
-              <ScrollView
+              <KeyboardAwareScrollViewCompat
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ gap: 20 }}
                 keyboardShouldPersistTaps="handled"
@@ -373,11 +370,11 @@ function LeaveReviewModal({
                 <Pressable onPress={onClose} style={S.cancelLink}>
                   <Text style={S.cancelText}>Plus tard</Text>
                 </Pressable>
-              </ScrollView>
+              </KeyboardAwareScrollViewCompat>
             )}
           </Animated.View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
