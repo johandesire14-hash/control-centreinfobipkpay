@@ -338,7 +338,7 @@ export default function ConversationScreen() {
             onChangeText={setText}
             placeholder="Écrivez un message…"
             placeholderTextColor={colors.mutedForeground}
-            style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground, opacity: 1 }]}
+            style={[styles.input, { backgroundColor: colors.secondary, color: colors.secondaryForeground, opacity: 1 }]}
             multiline
             textAlignVertical="top"
             selectionColor={colors.primary}
