@@ -437,7 +437,7 @@ export default function ConversationScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
   quoteSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 14 },
   quoteHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   quoteTitle: { fontFamily: "Inter_700Bold", fontSize: 20 },
