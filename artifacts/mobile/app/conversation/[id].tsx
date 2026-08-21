@@ -265,7 +265,10 @@ export default function ConversationScreen() {
             style={{ flex: 1 }}
             data={messages.data ?? []}
             keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={{ padding: 16, gap: 8 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets
+            contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 8 }}
             renderItem={({ item }) => {
               const mine = item.senderId === user?.id;
               const isImage = isImageUrl(item.content);
@@ -336,8 +339,13 @@ export default function ConversationScreen() {
             onChangeText={setText}
             placeholder="Écrivez un message…"
             placeholderTextColor={colors.mutedForeground}
-            style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground }]}
+            style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground, opacity: 1 }]}
             multiline
+            textAlignVertical="top"
+            selectionColor={colors.primary}
+            cursorColor={colors.primary}
+            onFocus={() => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120)}
+            accessibilityLabel="Écrire un message"
           />
           <Pressable
             onPress={handleSend}
@@ -466,12 +474,15 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    minHeight: 40,
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    maxHeight: 100,
+    fontSize: 16,
+    lineHeight: 21,
+    maxHeight: 120,
+    includeFontPadding: true,
   },
   sendButton: {
     width: 40,
