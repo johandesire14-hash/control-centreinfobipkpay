@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Search, X, SlidersHorizontal } from "lucide-react-native";
+import { Search, X, SlidersHorizontal, LocateFixed } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useListGarages, ListGaragesSort, type Specialty } from "@workspace/api-client-react";
@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { GarageCard } from "@/components/GarageCard";
 import { EmptyState } from "@/components/EmptyState";
 import { citiesWithNeighborhoods, cityList, specialtyLabels, specialtyOptions } from "@/constants/labels";
+import { requestUserLocation, type UserLocation } from "@/lib/location";
 
 const sortOptions: { value: (typeof ListGaragesSort)[keyof typeof ListGaragesSort]; label: string }[] = [
   { value: ListGaragesSort.rating, label: "Mieux notés" },
@@ -40,6 +41,23 @@ export default function RechercheScreen() {
   const [emergencyOnly, setEmergencyOnly] = useState(false);
   const [sort, setSort] = useState<(typeof ListGaragesSort)[keyof typeof ListGaragesSort]>(ListGaragesSort.rating);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [locationState, setLocationState] = useState<"idle" | "loading" | "granted" | "denied" | "error">("idle");
+
+  const handleRequestLocation = async () => {
+    setLocationState("loading");
+    try {
+      const location = await requestUserLocation();
+      if (!location) {
+        setLocationState("denied");
+        return;
+      }
+      setUserLocation(location);
+      setLocationState("granted");
+    } catch {
+      setLocationState("error");
+    }
+  };
 
   const garages = useListGarages({
     q: query || undefined,
@@ -118,9 +136,29 @@ export default function RechercheScreen() {
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+                </ScrollView>
+        <Pressable
+          onPress={handleRequestLocation}
+          disabled={locationState === "loading"}
+          accessibilityRole="button"
+          accessibilityLabel="Partager ma position pour trouver les garages proches"
+          style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}
+        >
+          <LocateFixed size={16} color="#FFFFFF" />
+          <Text style={{ color: "#FFFFFF", fontSize: 13 }}>
+            {locationState === "loading"
+              ? "Recherche de votre position…"
+              : locationState === "granted"
+                ? "Position utilisée pour la recherche"
+                : "Utiliser ma position"}
+          </Text>
+        </Pressable>
+        {locationState === "denied" || locationState === "error" ? (
+          <Text style={{ color: "#FFE2E2", fontSize: 12, marginTop: 6 }}>
+            La position n’est pas disponible. Vous pouvez continuer avec la recherche par ville ou quartier.
+          </Text>
+        ) : null}
       </View>
-
       {/* ── Results ── */}
       <FlatList
         data={garages.data ?? []}

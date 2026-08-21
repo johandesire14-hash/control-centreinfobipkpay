@@ -29,7 +29,8 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-camera"
+      "expo-camera",
+      "expo-location"
     ],
     "experiments": {
       "typedRoutes": true,
