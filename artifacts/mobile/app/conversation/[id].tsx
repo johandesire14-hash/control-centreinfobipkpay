@@ -6,9 +6,7 @@ import {
   Animated,
   FlatList,
   Image,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -17,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { FileText, ImageIcon, Plus, Send, X } from "lucide-react-native";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -250,11 +249,7 @@ export default function ConversationScreen() {
           ),
         }}
       />
-      <KeyboardAvoidingView
-        style={[styles.screen, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
-      >
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
         {messages.isLoading ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.primary} />
@@ -324,6 +319,10 @@ export default function ConversationScreen() {
         )}
 
         {/* Input bar */}
+        <KeyboardStickyView
+          offset={{ closed: 0, opened: 0 }}
+          style={{ backgroundColor: colors.background }}
+        >
         <View style={[styles.inputRow, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 10 }]}>
           {/* + attach button */}
           <Pressable
@@ -354,6 +353,7 @@ export default function ConversationScreen() {
             <Send size={17} color="#FFFFFF" />
           </Pressable>
         </View>
+        </KeyboardStickyView>
 
         {/* Attach menu */}
         <AttachMenu
@@ -419,7 +419,7 @@ export default function ConversationScreen() {
             </View>
           </TouchableWithoutFeedback>
         </Modal>
-      </KeyboardAvoidingView>
+      </View>
     </>
   );
 }
