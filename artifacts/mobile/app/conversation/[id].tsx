@@ -321,7 +321,8 @@ export default function ConversationScreen() {
         {/* Input bar */}
         <KeyboardStickyView
           offset={{ closed: 0, opened: 0 }}
-          style={{ backgroundColor: colors.background }}
+          enabled
+          style={[styles.keyboardComposer, { backgroundColor: colors.background }]}
         >
         <View style={[styles.inputRow, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 8 }]}>
 
@@ -341,6 +342,8 @@ export default function ConversationScreen() {
             style={[styles.input, { backgroundColor: colors.input, color: colors.secondaryForeground, opacity: 1 }]}
             multiline
             textAlignVertical="top"
+            returnKeyType="send"
+            blurOnSubmit={false}
             selectionColor={colors.primary}
             cursorColor={colors.primary}
             onFocus={() => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120)}
@@ -456,6 +459,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   bubbleTime: { fontSize: 10, fontFamily: "Inter_400Regular", alignSelf: "flex-end" },
+  keyboardComposer: { width: "100%", flexShrink: 0, zIndex: 10, elevation: 10 },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -474,6 +478,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    flexShrink: 1,
     minHeight: 40,
     borderRadius: 20,
     paddingHorizontal: 16,
