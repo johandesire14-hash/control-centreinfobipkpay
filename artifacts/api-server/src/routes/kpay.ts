@@ -1,31 +1,20 @@
-import crypto from "node:crypto";
-import { Router, type IRouter, type Request, type Response } from "express";
-import { and, eq } from "drizzle-orm";
-import {
-  db,
-  garagesTable,
-  invoicesTable,
-  kpayPaymentsTable,
-} from "@workspace/db";
+import { Router, type Request, type Response } from "express";
+import { timingSafeEqual } from "node:crypto";
+import { and, eq, lte, or } from "drizzle-orm";
+import { db, invoicesTable, kpayPaymentsTable } from "@workspace/db";
+import { canAcceptInvoicePayment, isSuccessfulKpayStatus } from "../lib/invoiceFlowRules";
 import { rateLimit } from "../middlewares/rateLimit";
 
-const router: IRouter = Router();
+const router = Router();
 
-type PaymentBody = {
-  invoiceId?: unknown;
-  phoneNumber?: unknown;
-  phone?: unknown;
-  provider?: unknown;
-};
-
-type KPayWebhookBody = {
-  externalId?: unknown;
-  transactionId?: unknown;
-  status?: unknown;
-  success?: unknown;
-  amount?: unknown;
-  currency?: unknown;
-};
+function validWebhookSecret(req: Request): boolean {
+  const expected = process.env.KPAY_WEBHOOK_SECRET;
+  const provided = String(req.headers["x-kpay-webhook-secret"] ?? "");
+  if (!expected || !provided) return false;
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(provided);
+  return expectedBuffer.length === providedBuffer.length && timingSafeEqual(expectedBuffer, providedBuffer);
+}
 
 function normalizePhone(value: unknown): string | null {
   const digits = String(value ?? "").replace(/\D/g, "");
@@ -34,103 +23,89 @@ function normalizePhone(value: unknown): string | null {
   return null;
 }
 
-function normalizeProvider(value: unknown): "AIRTEL_COG" | "MTN_MOMO_COG" | null {
-  const provider = String(value ?? "").trim().toUpperCase();
-  if (provider.includes("AIRTEL")) return "AIRTEL_COG";
-  if (provider.includes("MTN")) return "MTN_MOMO_COG";
-  return null;
-}
-
-function invoiceIsExpired(invoice: { expiresAt: Date; status: string }) {
-  return invoice.expiresAt.getTime() <= Date.now() || invoice.status === "expired";
-}
-
-function signatureMatches(rawBody: Buffer, signature: string | undefined, secret: string) {
-  if (!signature || !secret) return false;
-  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
-  const provided = signature.replace(/^sha256=/i, "").trim();
-  const expectedBuffer = Buffer.from(expected, "utf8");
-  const providedBuffer = Buffer.from(provided, "utf8");
-  return expectedBuffer.length === providedBuffer.length && crypto.timingSafeEqual(expectedBuffer, providedBuffer);
-}
+router.post("/webhook", rateLimit({ keyPrefix: "kpay-webhook", windowMs: 60_000, max: 120 }), async (req: Request, res: Response) => {
+  if (!validWebhookSecret(req)) return res.status(401).json({ error: "Webhook non autorisé." });
+  const payload = req.body as Record<string, unknown>;
+  const externalId = String(payload.externalId ?? payload.external_id ?? payload.reference ?? "").trim();
+  const transactionId = String(payload.transactionId ?? payload.transaction_id ?? payload.id ?? "").trim() || null;
+  const status = String(payload.status ?? payload.state ?? "").trim().toUpperCase();
+  const paid = isSuccessfulKpayStatus(status);
+  if (!externalId) return res.status(400).json({ error: "Référence KPay manquante." });
+  try {
+    const [payment] = await db.select().from(kpayPaymentsTable).where(eq(kpayPaymentsTable.externalId, externalId));
+    if (!payment) return res.status(404).json({ error: "Paiement introuvable." });
+    if (payment.status === "SUCCESS" || payment.status === "PAID") {
+      return res.status(200).json({ accepted: true, duplicate: true, invoiceId: payment.invoiceId });
+    }
+    if (!paid) {
+      await db.update(kpayPaymentsTable).set({ status: "FAILED", transactionId, rawWebhookPayload: payload, updatedAt: new Date() }).where(eq(kpayPaymentsTable.id, payment.id));
+      return res.status(200).json({ accepted: true, paid: false });
+    }
+    const [invoice] = payment.invoiceId
+      ? await db.select().from(invoicesTable).where(eq(invoicesTable.id, payment.invoiceId))
+      : [];
+    if (!invoice || Number(payment.amount) !== Number(invoice.amount) || invoice.expiresAt <= new Date()) {
+      await db.update(kpayPaymentsTable).set({ status: "FAILED", transactionId, rawWebhookPayload: payload, updatedAt: new Date() }).where(eq(kpayPaymentsTable.id, payment.id));
+      return res.status(409).json({ error: "Paiement confirmé mais facture expirée ou montant incohérent." });
+    }
+    await db.transaction(async tx => {
+      await tx.update(kpayPaymentsTable).set({ status: "SUCCESS", transactionId, paidAt: new Date(), rawWebhookPayload: payload, updatedAt: new Date() }).where(eq(kpayPaymentsTable.id, payment.id));
+      await tx.update(invoicesTable).set({ status: "paid", paidAt: new Date(), kpayTransactionId: transactionId, updatedAt: new Date() }).where(and(eq(invoicesTable.id, invoice.id), or(eq(invoicesTable.status, "issued"), eq(invoicesTable.status, "pending"))));
+    });
+    return res.status(200).json({ accepted: true, paid: true, invoiceId: invoice.id });
+  } catch (error) {
+    console.error("[KPAY WEBHOOK ERROR]", error instanceof Error ? error.message : "unknown");
+    return res.status(500).json({ error: "Erreur de traitement du webhook." });
+  }
+});
 
 router.post("/pay", rateLimit({ keyPrefix: "kpay-pay", windowMs: 60_000, max: 5 }), async (req: Request, res: Response) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: "Authentification requise." });
   }
 
-  const body = req.body as PaymentBody;
-  const invoiceId = typeof body.invoiceId === "string" ? body.invoiceId.trim() : "";
-  const phoneNumber = normalizePhone(body.phoneNumber ?? body.phone);
-  const provider = normalizeProvider(body.provider);
-
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invoiceId)) {
-    return res.status(400).json({ error: "Identifiant de facture invalide." });
-  }
-  if (!phoneNumber) return res.status(400).json({ error: "Numéro de téléphone invalide." });
-  if (!provider) return res.status(400).json({ error: "Fournisseur Mobile Money invalide." });
-
-  const baseUrl = process.env.KPAY_API_URL || "https://admin.kpay.site";
-  const apiKey = process.env.KPAY_API_KEY;
-  const secretKey = process.env.KPAY_SECRET_KEY;
-  if (!apiKey || !secretKey) {
-    req.log?.error("KPay server credentials are not configured");
-    return res.status(503).json({ error: "Paiement temporairement indisponible." });
+  const invoiceId = typeof req.body?.invoiceId === "string" ? req.body.invoiceId.trim() : "";
+  const phoneNumber = normalizePhone(req.body?.phoneNumber ?? req.body?.phone);
+  const providerInput = String(req.body?.provider ?? "").trim().toUpperCase();
+  const provider = providerInput.includes("AIRTEL")
+    ? "AIRTEL_COG"
+    : providerInput.includes("MTN")
+      ? "MTN_MOMO_COG"
+      : null;
+  if (!invoiceId || !phoneNumber || !provider) {
+    return res.status(400).json({ error: "invoiceId, phoneNumber et provider sont requis." });
   }
 
   try {
-    const [invoice] = await db
-      .select({ invoice: invoicesTable, garage: garagesTable })
-      .from(invoicesTable)
-      .innerJoin(garagesTable, eq(garagesTable.id, invoicesTable.garageId))
-      .where(eq(invoicesTable.id, invoiceId));
-
+    const now = new Date();
+    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, invoiceId));
     if (!invoice) return res.status(404).json({ error: "Facture introuvable." });
-    if (invoice.invoice.clientId && invoice.invoice.clientId !== req.user.id) {
-      return res.status(403).json({ error: "Cette facture ne vous est pas destinée." });
-    }
-    if (invoiceIsExpired(invoice.invoice)) {
-      await db.update(invoicesTable).set({ status: "expired" }).where(eq(invoicesTable.id, invoiceId));
-      return res.status(409).json({ error: "Cette facture a expiré." });
-    }
-    if (["paid", "cancelled"].includes(invoice.invoice.status)) {
+    const paymentRule = canAcceptInvoicePayment(invoice, invoice.amount, now);
+    if (!paymentRule.ok && paymentRule.reason === "expired_or_closed") {
+      if (["issued", "pending"].includes(invoice.status) && invoice.expiresAt <= now) {
+        await db.update(invoicesTable).set({ status: "expired", updatedAt: now }).where(eq(invoicesTable.id, invoice.id));
+        return res.status(410).json({ error: "Cette facture a expiré." });
+      }
       return res.status(409).json({ error: "Cette facture ne peut plus être payée." });
     }
+    if (!paymentRule.ok && paymentRule.reason === "already_paid") return res.status(409).json({ error: "Cette facture est déjà payée." });
 
-    const existing = await db
-      .select()
-      .from(kpayPaymentsTable)
-      .where(and(eq(kpayPaymentsTable.invoiceId, invoiceId), eq(kpayPaymentsTable.status, "PENDING")));
-    if (existing[0]) {
-      return res.status(202).json({
-        status: "pending",
-        invoiceId,
-        externalId: existing[0].externalId,
-      });
-    }
-
-    const externalId = `WAPI-${invoiceId}-${crypto.randomUUID()}`;
-    const [claimedInvoice] = await db
-      .update(invoicesTable)
-      .set({ status: "pending" })
-      .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.status, invoice.invoice.status)))
-      .returning();
-    if (!claimedInvoice) return res.status(409).json({ error: "Facture déjà en cours de paiement." });
-
+    const externalId = `INV-${invoice.id}-${Date.now()}`;
     await db.insert(kpayPaymentsTable).values({
-      invoiceId,
       externalId,
-      amount: String(invoice.invoice.amount),
-      grossAmount: invoice.invoice.amount,
-      netAmount: Math.max(0, invoice.invoice.amount - 500),
+      amount: String(invoice.amount),
       provider,
       phoneNumber,
-      description: invoice.invoice.description || `Facture ${invoiceId}`,
-      clientId: req.user.id,
-      garageId: invoice.invoice.garageId,
+      description: invoice.description ?? "Paiement WapiGarage",
+      clientId: invoice.clientId,
+      garageId: invoice.garageId,
+      invoiceId: invoice.id,
       status: "PENDING",
     });
 
+    const baseUrl = process.env.KPAY_API_URL || "https://admin.kpay.site";
+    const apiKey = process.env.KPAY_API_KEY || "";
+    const secretKey = process.env.KPAY_SECRET_KEY || "";
     const kpayRes = await fetch(`${baseUrl}/api/v1/payments/init`, {
       method: "POST",
       headers: {
@@ -139,82 +114,37 @@ router.post("/pay", rateLimit({ keyPrefix: "kpay-pay", windowMs: 60_000, max: 5 
         "X-Secret-Key": secretKey,
       },
       body: JSON.stringify({
-        amount: invoice.invoice.amount,
+        amount: invoice.amount,
         phoneNumber,
         provider,
         externalId,
-        description: invoice.invoice.description || `Facture ${invoiceId}`,
+        description: invoice.description ?? "Paiement WapiGarage",
       }),
     });
-
     const responseText = await kpayRes.text();
     if (!kpayRes.ok) {
-      await db.update(kpayPaymentsTable).set({ status: "FAILED" }).where(eq(kpayPaymentsTable.externalId, externalId));
-      await db.update(invoicesTable).set({ status: "failed" }).where(eq(invoicesTable.id, invoiceId));
-      return res.status(502).json({ error: "Échec de l'initialisation du paiement." });
+      await db.update(kpayPaymentsTable).set({ status: "FAILED", updatedAt: new Date() }).where(eq(kpayPaymentsTable.externalId, externalId));
+      return res.status(kpayRes.status).json({ error: "Échec du paiement KPay" });
     }
-
+    let kpayData: unknown;
+    try {
+      kpayData = JSON.parse(responseText);
+    } catch {
+      kpayData = { raw: responseText };
+    }
     return res.status(202).json({
-      status: "pending",
-      invoiceId,
+      accepted: true,
+      invoiceId: invoice.id,
       externalId,
+      amount: invoice.amount,
+      currency: invoice.currency,
+      status: "pending",
       provider,
-      amount: invoice.invoice.amount,
-      currency: invoice.invoice.currency,
-      garage: { id: invoice.garage.id, name: invoice.garage.name },
-      kpay: (() => {
-        try { return JSON.parse(responseText); } catch { return undefined; }
-      })(),
+      kpay: kpayData,
     });
   } catch (error) {
-    req.log?.error({ err: error }, "KPay payment initialization failed");
-    return res.status(500).json({ error: "Erreur serveur pendant le paiement." });
-  }
-});
-
-router.post("/webhook", rateLimit({ keyPrefix: "kpay-webhook", windowMs: 60_000, max: 120 }), async (req: Request, res: Response) => {
-  const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
-  const secret = process.env.KPAY_WEBHOOK_SECRET || process.env.KPAY_SECRET_KEY || "";
-  const signature = String(req.header("x-kpay-signature") || req.header("x-signature") || "");
-  if (!rawBody || !signatureMatches(rawBody, signature, secret)) {
-    return res.status(401).json({ error: "Signature webhook invalide." });
-  }
-
-  const payload = req.body as KPayWebhookBody;
-  const externalId = typeof payload.externalId === "string" ? payload.externalId : "";
-  if (!externalId) return res.status(400).json({ error: "Référence de paiement absente." });
-
-  const normalizedStatus = String(payload.status ?? "").toUpperCase();
-  const isPaid = payload.success === true || ["SUCCESS", "SUCCEEDED", "PAID", "COMPLETED"].includes(normalizedStatus);
-  const isFailed = ["FAILED", "FAILURE", "DECLINED", "CANCELLED", "EXPIRED"].includes(normalizedStatus);
-
-  try {
-    const [payment] = await db.select().from(kpayPaymentsTable).where(eq(kpayPaymentsTable.externalId, externalId));
-    if (!payment) return res.status(404).json({ error: "Paiement inconnu." });
-    if (payment.status === "PAID" || payment.status === "FAILED") return res.status(200).json({ ok: true, idempotent: true });
-
-    const transactionId = typeof payload.transactionId === "string" ? payload.transactionId : payment.transactionId;
-    if (isPaid) {
-      const webhookAmount = payload.amount == null ? Number(payment.amount) : Number(payload.amount);
-      if (!Number.isFinite(webhookAmount) || webhookAmount !== Number(payment.amount)) {
-        return res.status(409).json({ error: "Montant webhook incohérent." });
-      }
-      await db.transaction(async (tx) => {
-        await tx.update(kpayPaymentsTable).set({ status: "PAID", transactionId, paidAt: new Date(), rawWebhookPayload: payload }).where(and(eq(kpayPaymentsTable.id, payment.id), eq(kpayPaymentsTable.status, "PENDING")));
-        await tx.update(invoicesTable).set({ status: "paid", paidAt: new Date(), kpayTransactionId: transactionId }).where(and(eq(invoicesTable.id, payment.invoiceId), eq(invoicesTable.status, "pending")));
-      });
-    } else if (isFailed) {
-      await db.transaction(async (tx) => {
-        await tx.update(kpayPaymentsTable).set({ status: "FAILED", transactionId, rawWebhookPayload: payload }).where(and(eq(kpayPaymentsTable.id, payment.id), eq(kpayPaymentsTable.status, "PENDING")));
-        await tx.update(invoicesTable).set({ status: "failed" }).where(and(eq(invoicesTable.id, payment.invoiceId), eq(invoicesTable.status, "pending")));
-      });
-    } else {
-      return res.status(202).json({ ok: true, ignored: true });
-    }
-    return res.status(200).json({ ok: true });
-  } catch (error) {
-    req.log?.error({ err: error }, "KPay webhook processing failed");
-    return res.status(500).json({ error: "Webhook non traité." });
+    console.error("[KPAY ERROR]", error instanceof Error ? error.message : "unknown");
+    return res.status(500).json({ error: "Erreur serveur pendant l'initialisation du paiement." });
   }
 });
 

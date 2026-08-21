@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { and, desc, eq } from "drizzle-orm";
-import { db, reviewsTable, usersTable, garagesTable, invoicesTable, notificationsTable } from "@workspace/db";
+import { db, reviewsTable, usersTable, garagesTable, notificationsTable, invoicesTable } from "@workspace/db";
 import { CreateGarageReviewBody, CreateGarageReviewResponse, ListGarageReviewsResponse } from "@workspace/api-zod";
+import { canSubmitInvoiceReview } from "../lib/invoiceFlowRules";
 import { rateLimit } from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
@@ -43,15 +44,9 @@ router.post("/garages/:garageId/reviews", rateLimit({ keyPrefix: "review-create"
   }
 
   const garageId = Number(req.params.garageId);
-  const invoiceId = typeof req.body?.invoiceId === "string" ? req.body.invoiceId.trim() : "";
   const parsed = CreateGarageReviewBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid fields" });
-    return;
-  }
-
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invoiceId)) {
-    res.status(400).json({ error: "Une facture valide est requise pour laisser un avis." });
     return;
   }
 
@@ -61,21 +56,41 @@ router.post("/garages/:garageId/reviews", rateLimit({ keyPrefix: "review-create"
     return;
   }
 
-  const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, invoiceId));
-  if (!invoice || invoice.garageId !== garageId || invoice.clientId !== req.user.id || invoice.status !== "paid") {
-    res.status(403).json({ error: "Un avis est possible uniquement après une facture payée dans ce garage." });
-    return;
-  }
-
-  const [existingReview] = await db.select({ id: reviewsTable.id }).from(reviewsTable).where(eq(reviewsTable.invoiceId, invoiceId));
-  if (existingReview) {
-    res.status(409).json({ error: "Cette facture a déjà été évaluée." });
-    return;
-  }
-
   // Anti-self-interaction: garage owner cannot review their own garage
   if (garage.ownerId === req.user.id) {
     res.status(403).json({ error: "Vous ne pouvez pas interagir avec votre propre garage." });
+    return;
+  }
+
+  const requestedInvoiceId = typeof req.body?.invoiceId === "string" ? req.body.invoiceId.trim() : "";
+  const [invoice] = requestedInvoiceId
+    ? await db.select().from(invoicesTable).where(eq(invoicesTable.id, requestedInvoiceId))
+    : await db
+        .select()
+        .from(invoicesTable)
+        .where(and(eq(invoicesTable.garageId, garageId), eq(invoicesTable.clientId, req.user.id), eq(invoicesTable.status, "paid")))
+        .orderBy(desc(invoicesTable.paidAt))
+        .limit(1);
+  if (!invoice || invoice.garageId !== garageId) {
+    res.status(403).json({ error: "Cette facture n'appartient pas à ce garage." });
+    return;
+  }
+  const [existingReview] = await db
+    .select({ id: reviewsTable.id })
+    .from(reviewsTable)
+    .where(eq(reviewsTable.invoiceId, invoice.id))
+    .limit(1);
+  const reviewRule = canSubmitInvoiceReview(invoice, req.user.id, Boolean(existingReview));
+  if (!reviewRule.ok && reviewRule.reason === "not_invoice_client") {
+    res.status(403).json({ error: "Seul le client lié à la facture peut laisser un avis." });
+    return;
+  }
+  if (!reviewRule.ok && reviewRule.reason === "invoice_not_paid") {
+    res.status(403).json({ error: "L'avis est disponible après confirmation du paiement." });
+    return;
+  }
+  if (!reviewRule.ok && reviewRule.reason === "already_reviewed") {
+    res.status(409).json({ error: "Un avis existe déjà pour cette facture." });
     return;
   }
 
@@ -84,7 +99,7 @@ router.post("/garages/:garageId/reviews", rateLimit({ keyPrefix: "review-create"
     .values({
       garageId,
       userId: req.user.id,
-      invoiceId,
+      invoiceId: invoice.id,
       rating: parsed.data.rating,
       comment: parsed.data.comment ?? null,
       qualityRating: parsed.data.qualityRating,
