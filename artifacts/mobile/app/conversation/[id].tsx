@@ -127,6 +127,8 @@ export default function ConversationScreen() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
+  const [quoteFormOpen, setQuoteFormOpen] = useState(false);
+  const [quoteDetails, setQuoteDetails] = useState("");
   const listRef = useRef<FlatList>(null);
 
   const conversations = useListConversations();
@@ -150,6 +152,29 @@ export default function ConversationScreen() {
     );
   };
 
+  const handleRequestQuote = () => {
+    setQuoteFormOpen(true);
+  };
+
+  const handleSubmitQuote = () => {
+    const content = quoteDetails.trim();
+    if (content.length < 10) {
+      Alert.alert("Demande incomplète", "Décrivez votre besoin en au moins quelques mots.");
+      return;
+    }
+    sendMessage.mutate(
+      { conversationId, data: { type: MessageType.quote_request, content } },
+      {
+        onSuccess: () => {
+          setQuoteDetails("");
+          setQuoteFormOpen(false);
+          messages.refetch();
+        },
+        onError: () => Alert.alert("Erreur", "La demande de devis n’a pas pu être envoyée."),
+      },
+    );
+  };
+
   const handlePickPhoto = async () => {
     setUploadingPhoto(true);
     try {
@@ -167,6 +192,16 @@ export default function ConversationScreen() {
   };
 
   const attachItems: AttachItem[] = [
+    ...(!isPro
+      ? [
+          {
+            icon: <FileText size={26} color="#FFFFFF" />,
+            label: "Demander un devis",
+            color: "#1D7159",
+            onPress: handleRequestQuote,
+          } satisfies AttachItem,
+        ]
+      : []),
     ...(isPro
       ? [
           {
@@ -320,6 +355,50 @@ export default function ConversationScreen() {
           items={attachItems}
         />
 
+        {/* Demande de devis */}
+        <Modal
+          visible={quoteFormOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setQuoteFormOpen(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.quoteSheet, { backgroundColor: colors.card }]}>
+              <View style={styles.quoteHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.quoteTitle, { color: colors.foreground }]}>Demander un devis</Text>
+                  <Text style={[styles.quoteSubtitle, { color: colors.mutedForeground }]}>Décrivez le problème de votre véhicule au pro.</Text>
+                </View>
+                <Pressable onPress={() => setQuoteFormOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la demande de devis">
+                  <X size={22} color={colors.mutedForeground} />
+                </Pressable>
+              </View>
+              <TextInput
+                value={quoteDetails}
+                onChangeText={setQuoteDetails}
+                placeholder="Exemple : Toyota Corolla 2015, bruit au freinage…"
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                textAlignVertical="top"
+                style={[styles.quoteInput, { backgroundColor: colors.secondary, color: colors.foreground }]}
+                accessibilityLabel="Description de votre demande de devis"
+              />
+              <View style={styles.quoteFormActions}>
+                <Pressable onPress={() => setQuoteFormOpen(false)} style={[styles.cancelButton, { backgroundColor: colors.secondary }]}>
+                  <Text style={[styles.cancelButtonText, { color: colors.foreground }]}>Annuler</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSubmitQuote}
+                  disabled={sendMessage.isPending}
+                  style={[styles.submitButton, { backgroundColor: colors.primary, opacity: sendMessage.isPending ? 0.6 : 1 }]}
+                >
+                  <Text style={styles.submitButtonText}>{sendMessage.isPending ? "Envoi…" : "Envoyer la demande"}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Fullscreen image */}
         <Modal visible={!!fullscreenImage} transparent animationType="fade" statusBarTranslucent>
           <TouchableWithoutFeedback onPress={() => setFullscreenImage(null)}>
@@ -342,6 +421,17 @@ export default function ConversationScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" },
+  quoteSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 14 },
+  quoteHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  quoteTitle: { fontFamily: "Inter_700Bold", fontSize: 20 },
+  quoteSubtitle: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, marginTop: 4 },
+  quoteInput: { minHeight: 130, borderRadius: 14, padding: 14, fontFamily: "Inter_400Regular", fontSize: 14 },
+  quoteFormActions: { flexDirection: "row", gap: 10 },
+  cancelButton: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: "center" },
+  cancelButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  submitButton: { flex: 2, borderRadius: 12, paddingVertical: 12, alignItems: "center" },
+  submitButtonText: { color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   bubbleRow: { flexDirection: "row" },
   bubble: {

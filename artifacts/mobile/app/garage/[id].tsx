@@ -27,7 +27,6 @@ import {
   useListGarageReviews,
   useRemoveFavorite,
   useStartConversation,
-  useSendMessage,
   getListMyFavoritesQueryKey,
   getListTopRatedGaragesQueryKey,
   getListCertifiedGaragesQueryKey,
@@ -58,8 +57,6 @@ export default function GarageDetailScreen() {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showQuoteForm, setShowQuoteForm] = useState(false);
-  const [quoteDetails, setQuoteDetails] = useState("");
 
   const garage = useGetGarage(garageId);
   const reviews = useListGarageReviews(garageId);
@@ -78,7 +75,6 @@ export default function GarageDetailScreen() {
   const removeFavorite = useRemoveFavorite();
   const createReview = useCreateGarageReview();
   const startConversation = useStartConversation();
-  const sendMessage = useSendMessage();
 
   const showSelfBlockAlert = () =>
     Alert.alert("Action impossible", "Vous ne pouvez pas interagir avec votre propre garage.");
@@ -109,42 +105,6 @@ export default function GarageDetailScreen() {
       {
         onSuccess: (conv) => router.push(`/conversation/${conv.id}`),
         onError: () => Alert.alert("Erreur", "Impossible de démarrer la conversation."),
-      },
-    );
-  };
-
-  const handleRequestQuote = () => {
-    if (isOwnGarage) { showSelfBlockAlert(); return; }
-    if (!isAuthenticated) {
-      router.push({ pathname: "/auth", params: { message: "Connectez-vous pour demander un devis" } });
-      return;
-    }
-    setShowQuoteForm(true);
-  };
-
-  const handleSubmitQuote = () => {
-    const content = quoteDetails.trim();
-    if (content.length < 10) {
-      Alert.alert("Demande incomplète", "Décrivez votre besoin en au moins quelques mots.");
-      return;
-    }
-    startConversation.mutate(
-      { data: { garageId } },
-      {
-        onSuccess: (conv) => {
-          sendMessage.mutate(
-            { conversationId: conv.id, data: { type: "quote_request", content } },
-            {
-              onSuccess: () => {
-                setQuoteDetails("");
-                setShowQuoteForm(false);
-                router.push(`/conversation/${conv.id}`);
-              },
-              onError: () => Alert.alert("Erreur", "La demande n’a pas pu être envoyée."),
-            },
-          );
-        },
-        onError: () => Alert.alert("Erreur", "Impossible de contacter ce garage."),
       },
     );
   };
@@ -301,16 +261,6 @@ export default function GarageDetailScreen() {
               <MoreVertical size={18} color={colors.foreground} />
             </Pressable>
           </View>
-          <Pressable
-            onPress={handleRequestQuote}
-            disabled={startConversation.isPending || sendMessage.isPending}
-            accessibilityRole="button"
-            accessibilityLabel="Demander un devis à ce garage"
-            style={[styles.quoteAction, { borderColor: colors.primary, backgroundColor: colors.secondary }, isOwnGarage && { opacity: 0.4 }]}
-          >
-            <Wrench size={16} color={colors.primary} />
-            <Text style={[styles.quoteActionText, { color: colors.primary }]}>Demander un devis</Text>
-          </Pressable>
         </View>
 
         {/* Tabs */}
@@ -536,49 +486,7 @@ export default function GarageDetailScreen() {
         ) : null}
       </ScrollView>
 
-      {/* Demande de devis */}
-      <Modal
-        visible={showQuoteForm}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowQuoteForm(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.quoteSheet, { backgroundColor: colors.card }]}>
-            <View style={styles.quoteHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.quoteTitle, { color: colors.foreground }]}>Demander un devis</Text>
-                <Text style={[styles.quoteSubtitle, { color: colors.mutedForeground }]}>Décrivez le problème de votre véhicule au pro.</Text>
-              </View>
-              <Pressable onPress={() => setShowQuoteForm(false)} accessibilityRole="button" accessibilityLabel="Fermer la demande de devis">
-                <X size={22} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-            <TextInput
-              value={quoteDetails}
-              onChangeText={setQuoteDetails}
-              placeholder="Exemple : Toyota Corolla 2015, bruit au freinage…"
-              placeholderTextColor={colors.mutedForeground}
-              multiline
-              textAlignVertical="top"
-              style={[styles.quoteInput, { backgroundColor: colors.secondary, color: colors.foreground }]}
-              accessibilityLabel="Description de votre demande de devis"
-            />
-            <View style={styles.quoteFormActions}>
-              <Pressable onPress={() => setShowQuoteForm(false)} style={[styles.cancelButton, { backgroundColor: colors.secondary }]}>
-                <Text style={[styles.addReviewText, { color: colors.foreground }]}>Annuler</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSubmitQuote}
-                disabled={startConversation.isPending || sendMessage.isPending}
-                style={[styles.submitButton, { backgroundColor: colors.primary, opacity: startConversation.isPending || sendMessage.isPending ? 0.6 : 1 }]}
-              >
-                <Text style={styles.submitButtonText}>{startConversation.isPending || sendMessage.isPending ? "Envoi…" : "Envoyer la demande"}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
 
       {/* Lightbox */}
       <Modal
@@ -686,8 +594,6 @@ const styles = StyleSheet.create({
   },
   urgenceText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
   actionsRow: { flexDirection: "row", gap: 10, marginTop: 4 },
-  quoteAction: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderRadius: 16, paddingVertical: 13, marginTop: 2 },
-  quoteActionText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   primaryAction: {
     flex: 1,
     flexDirection: "row",
@@ -821,13 +727,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "80%",
   },
-  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" },
-  quoteSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 14 },
-  quoteHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  quoteTitle: { fontFamily: "Inter_700Bold", fontSize: 20 },
-  quoteSubtitle: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, marginTop: 4 },
-  quoteInput: { minHeight: 130, borderRadius: 14, padding: 14, fontFamily: "Inter_400Regular", fontSize: 14 },
-  quoteFormActions: { flexDirection: "row", gap: 10 },
   menuBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
