@@ -1,6 +1,7 @@
-import { integer, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { integer, pgTable, serial, text, timestamp, varchar, uuid } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 import { garagesTable } from "./garages";
+import { invoicesTable } from "./invoices";
 
 export const reviewsTable = pgTable("reviews", {
   id: serial("id").primaryKey(),
@@ -10,6 +11,8 @@ export const reviewsTable = pgTable("reviews", {
   userId: varchar("user_id")
     .notNull()
     .references(() => usersTable.id),
+  /** Required for new reviews; nullable only for legacy reviews. */
+  invoiceId: uuid("invoice_id").references(() => invoicesTable.id, { onDelete: "restrict" }),
   rating: integer("rating").notNull(),
   comment: text("comment"),
   qualityRating: integer("quality_rating").notNull(),

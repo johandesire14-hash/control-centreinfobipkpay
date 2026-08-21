@@ -568,6 +568,7 @@ export const createGarageReviewBodyValueRatingMax = 5;
 
 
 export const CreateGarageReviewBody = zod.object({
+  "invoiceId": zod.string().uuid().optional(),
   "rating": zod.number().min(1).max(createGarageReviewBodyRatingMax),
   "comment": zod.string().optional(),
   "qualityRating": zod.number().min(1).max(createGarageReviewBodyQualityRatingMax),

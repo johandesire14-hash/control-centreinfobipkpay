@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { desc, eq } from "drizzle-orm";
-import { db, reviewsTable, usersTable, garagesTable, notificationsTable } from "@workspace/db";
+import { and, desc, eq } from "drizzle-orm";
+import { db, reviewsTable, usersTable, garagesTable, notificationsTable, invoicesTable } from "@workspace/db";
 import { CreateGarageReviewBody, CreateGarageReviewResponse, ListGarageReviewsResponse } from "@workspace/api-zod";
+import { canSubmitInvoiceReview } from "../lib/invoiceFlowRules";
 
 const router: IRouter = Router();
 
@@ -60,11 +61,43 @@ router.post("/garages/:garageId/reviews", async (req: Request, res: Response) =>
     return;
   }
 
+  const [invoice] = parsed.data.invoiceId
+    ? await db.select().from(invoicesTable).where(eq(invoicesTable.id, parsed.data.invoiceId))
+    : await db
+        .select()
+        .from(invoicesTable)
+        .where(and(eq(invoicesTable.garageId, garageId), eq(invoicesTable.clientId, req.user.id), eq(invoicesTable.status, "paid")))
+        .orderBy(desc(invoicesTable.paidAt))
+        .limit(1);
+  if (!invoice || invoice.garageId !== garageId) {
+    res.status(403).json({ error: "Cette facture n'appartient pas à ce garage." });
+    return;
+  }
+  const [existingReview] = await db
+    .select({ id: reviewsTable.id })
+    .from(reviewsTable)
+    .where(eq(reviewsTable.invoiceId, invoice.id))
+    .limit(1);
+  const reviewRule = canSubmitInvoiceReview(invoice, req.user.id, Boolean(existingReview));
+  if (!reviewRule.ok && reviewRule.reason === "not_invoice_client") {
+    res.status(403).json({ error: "Seul le client lié à la facture peut laisser un avis." });
+    return;
+  }
+  if (!reviewRule.ok && reviewRule.reason === "invoice_not_paid") {
+    res.status(403).json({ error: "L'avis est disponible après confirmation du paiement." });
+    return;
+  }
+  if (!reviewRule.ok && reviewRule.reason === "already_reviewed") {
+    res.status(409).json({ error: "Un avis existe déjà pour cette facture." });
+    return;
+  }
+
   const [review] = await db
     .insert(reviewsTable)
     .values({
       garageId,
       userId: req.user.id,
+      invoiceId: invoice.id,
       rating: parsed.data.rating,
       comment: parsed.data.comment ?? null,
       qualityRating: parsed.data.qualityRating,

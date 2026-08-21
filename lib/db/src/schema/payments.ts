@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 import { garagesTable } from "./garages";
+import { invoicesTable } from "./invoices";
 
 // ─── KPay payments ───────────────────────────────────────────────────────────
 
@@ -36,6 +37,9 @@ export const kpayPaymentsTable = pgTable("kpay_payments", {
     onDelete: "set null",
   }),
   garageId: integer("garage_id").references(() => garagesTable.id, {
+    onDelete: "set null",
+  }),
+  invoiceId: uuid("invoice_id").references(() => invoicesTable.id, {
     onDelete: "set null",
   }),
 

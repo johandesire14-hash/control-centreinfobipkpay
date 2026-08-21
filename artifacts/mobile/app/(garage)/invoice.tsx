@@ -3,7 +3,7 @@
  * Crée une facture et encaisse en Mobile Money (MTN / Airtel Congo 🇨🇬)
  * Mode A : QR Code   |   Mode B : Push direct
  */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -21,9 +21,9 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import * as SecureStore from "expo-secure-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLocalSearchParams } from "expo-router";
 import { CheckCircle, QrCode, Smartphone, RotateCcw, X, ChevronDown } from "lucide-react-native";
-// Link2 imported directly — barrel re-exports `default as Link2` twice which Hermes drops
-import Link2 from "lucide-react-native/dist/esm/icons/link-2.mjs";
+import { Link2 } from "lucide-react-native";
 import { useG, type GarageTheme } from "./_layout";
 import { useGetMyGarage } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
@@ -318,7 +318,10 @@ export default function CreateInvoiceScreen() {
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(G), [G]);
   const { isAuthenticated, user } = useAuth();
+  const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
   const myGarage = useGetMyGarage({ query: { enabled: isAuthenticated } as never });
+  const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(null);
+
 
   // Form
   const [description, setDescription] = useState("");
@@ -329,6 +332,31 @@ export default function CreateInvoiceScreen() {
   const [mode, setMode] = useState<Mode>("qr");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (status !== "pending" || !createdInvoiceId) return;
+    let cancelled = false;
+    const poll = async () => {
+      const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+      const response = await fetch(`${getApiBase()}/api/invoices/${createdInvoiceId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok || cancelled) return;
+      const data = (await response.json()) as { status?: string; amount?: number };
+      if (typeof data.amount === "number") setAmountStr(String(data.amount));
+      if (data.status === "paid") setStatus("success");
+      if (data.status === "expired" || data.status === "cancelled" || data.status === "failed") {
+        setStatus("error");
+        setErrorMsg("Cette facture n'est plus payable.");
+      }
+    };
+    void poll();
+    const interval = setInterval(() => void poll(), 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [createdInvoiceId, status]);
 
   // QR payload (built on submit)
   const [qrPayload, setQrPayload] = useState<string | null>(null);
@@ -343,6 +371,7 @@ export default function CreateInvoiceScreen() {
 
   // ── Validation ──
   const validate = (): string | null => {
+    if (!conversationId) return "Ouvrez une demande client avant de créer une facture.";
     if (!description.trim()) return "Décrivez les travaux effectués.";
     if (!amount || amount < 100) return "Le montant minimum est 100 FCFA.";
     if (mode === "push") {
@@ -352,33 +381,38 @@ export default function CreateInvoiceScreen() {
     return null;
   };
 
+    // ── Server invoice creation ──
+  const createServerInvoice = async () => {
+    if (!conversationId) throw new Error("Cette facture doit être créée depuis une demande client.");
+    const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+    const res = await fetch(`${getApiBase()}/api/invoices/from-conversation/${conversationId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ amount, description: description.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data as { error?: string }).error ?? `Erreur ${res.status}`);
+    const created = data as { invoiceId: string; amount: number; description?: string };
+    setCreatedInvoiceId(created.invoiceId);
+    setAmountStr(String(created.amount));
+    return created;
+  };
+
   // ── Submit ──
   const handleSubmit = async () => {
     const err = validate();
     if (err) { setErrorMsg(err); return; }
     setErrorMsg("");
-
-    if (mode === "qr") {
-      // Build QR payload (payment intent data)
-      const payload = JSON.stringify({
-        garage: myGarage.data?.name ?? "Garage",
-        garageId: myGarage.data?.id,
-        description: description.trim(),
-        amount,
-        currency: "FCFA",
-        externalId: `INV-${Date.now()}`,
-      });
-      setQrPayload(payload);
-      setStatus("pending");
-      // In production, poll backend for confirmation.
-      // For demo, simulate after 4s.
-      setTimeout(() => setStatus("success"), 4000);
-      return;
-    }
-
-    // Mode push → KPay API
     setStatus("pending");
     try {
+      const created = createdInvoiceId ? { invoiceId: createdInvoiceId, amount } : await createServerInvoice();
+      if (mode === "qr") {
+        setQrPayload(JSON.stringify({ invoiceId: created.invoiceId }));
+        return;
+      }
       const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
       const res = await fetch(`${getApiBase()}/api/kpay/pay`, {
         method: "POST",
@@ -387,62 +421,44 @@ export default function CreateInvoiceScreen() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          amount,
+          invoiceId: created.invoiceId,
           phoneNumber: `242${phone}`,
           provider: provider ? toCongoApiProvider(provider) : undefined,
-          externalId: `INV-${Date.now()}`,
-          description: description.trim(),
-          garageId: myGarage.data?.id ?? null,
         }),
       });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? `Erreur ${res.status}`);
-      }
-      // Success (or KPay accepted the init — real polling omitted)
-      setStatus("success");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? `Erreur ${res.status}`);
     } catch (e) {
       setStatus("error");
       setErrorMsg(e instanceof Error ? e.message : "Erreur inconnue.");
     }
   };
 
-  // ── Share link (HTTPS — cliquable WhatsApp / SMS) ──
+  // ── Share link (invoiceId only) ──
   const handleShareLink = async () => {
-    if (!description.trim()) { setErrorMsg("Décrivez les travaux effectués."); return; }
-    if (!amount || amount < 100) { setErrorMsg("Le montant minimum est 100 FCFA."); return; }
+    const err = validate();
+    if (err) { setErrorMsg(err); return; }
     setErrorMsg("");
-
-    const garageId = myGarage.data?.id ?? "";
-    const garageName = myGarage.data?.name ?? "Garage";
-
-    const shareUrl =
-      `https://wapigarage.app/pay` +
-      `?garageId=${garageId}` +
-      `&amount=${amount}` +
-      `&description=${encodeURIComponent(description.trim())}` +
-      `&garageName=${encodeURIComponent(garageName)}`;
-
-    const shareMessage =
-      `🧾 *Facture Wapi Garage*\n\n` +
-      `Bonjour, votre véhicule est prêt chez *${garageName}* !\n\n` +
-      `🔧 Prestation : ${description.trim()}\n` +
-      `💰 Montant : ${amount} FCFA\n\n` +
-      `Cliquez sur le lien ci-dessous pour régler votre facture directement dans l'application :\n\n` +
-      `${shareUrl}\n\n` +
-      `_Facture enregistrée dans votre carnet d'entretien numérique._`;
-
     try {
+      const created = createdInvoiceId ? { invoiceId: createdInvoiceId, amount } : await createServerInvoice();
+      const garageName = myGarage.data?.name ?? "Garage";
+      const shareUrl = `https://wapigarage.app/pay?invoiceId=${encodeURIComponent(created.invoiceId)}`;
+      const shareMessage =
+        `🧾 *Facture Wapi Garage*\n\n` +
+        `Bonjour, votre véhicule est prêt chez *${garageName}* !\n\n` +
+        `🔧 Prestation : ${description.trim()}\n` +
+        `💰 Montant : ${created.amount} FCFA\n\n` +
+        `Lien sécurisé : ${shareUrl}`;
       await Share.share({ message: shareMessage });
-    } catch {
-      // user cancelled — do nothing
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Impossible de partager la facture.");
     }
   };
 
   const handleReset = () => {
     setStatus("idle");
     setQrPayload(null);
+    setCreatedInvoiceId(null);
     setDescription("");
     setAmountStr("25000");
     setPhone("");
