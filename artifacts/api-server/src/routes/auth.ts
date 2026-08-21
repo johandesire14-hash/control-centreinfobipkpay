@@ -14,6 +14,10 @@ import {
   deleteSession,
   type SessionData,
 } from "../lib/auth";
+import {
+  getDefaultMobileRedirect,
+  getSafeMobileRedirect,
+} from "../lib/oauthRedirect";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 const OAUTH_EXCHANGE_TTL = 60 * 1000;
@@ -108,49 +112,7 @@ function readOAuthMobileRedirect(state: unknown): string | null {
   }
 }
 
-function getSafeMobileRedirect(value: unknown): string | null {
-  if (typeof value !== "string" || value.length === 0) return null;
-  const environment = process.env.NODE_ENV === "production" ? "production" : process.env.NODE_ENV === "staging" ? "staging" : "development";
-  const configured = (process.env[`MOBILE_AUTH_REDIRECT_ALLOWLIST_${environment.toUpperCase()}`] ?? process.env.MOBILE_AUTH_REDIRECT_ALLOWLIST ?? "")
-    .split(",")
-    .map((item) => item.trim().replace(/\/$/, ""))
-    .filter(Boolean);
-  const defaults = environment === "production"
-    ? ["wapigarage://auth"]
-    : ["wapigarage://auth", "exp://127.0.0.1:8081/--/auth"];
-  const allowlist = new Set([...defaults, ...configured]);
-  const replitExpoDomain = (process.env.REPLIT_EXPO_DEV_DOMAIN ?? "")
-    .replace(/^https?:\/\//, "")
-    .split("/", 1)[0]
-    .toLowerCase();
-  try {
-    const url = new URL(value);
-    const normalized = value.split("?")[0].replace(/\/$/, "");
-    const isAllowedReplitExpoRedirect =
-      environment !== "production" &&
-      url.protocol === "exp:" &&
-      Boolean(replitExpoDomain) &&
-      url.hostname.toLowerCase() === replitExpoDomain &&
-      /^\/--\/auth\/?$/.test(url.pathname);
-    if (!allowlist.has(normalized) && !isAllowedReplitExpoRedirect) return null;
-    const allowedProtocols = new Set(["http:", "https:", "wapigarage:"]);
-    if (environment !== "production") allowedProtocols.add("exp:");
-    if (!allowedProtocols.has(url.protocol)) return null;
-    return value;
-  } catch {
-    return null;
-  }
-}
 
-function getDefaultMobileRedirect(): string | null {
-  const environment = process.env.NODE_ENV === "production" ? "production" : process.env.NODE_ENV === "staging" ? "staging" : "development";
-  if (environment === "production") return "wapigarage://auth";
-  const domain = (process.env.REPLIT_EXPO_DEV_DOMAIN ?? "")
-    .replace(/^https?:\/\//, "")
-    .split("/", 1)[0]
-    .toLowerCase();
-  return domain ? `exp://${domain}/--/auth` : null;
-}
 
 interface GoogleUserInfo {
   sub: string;
