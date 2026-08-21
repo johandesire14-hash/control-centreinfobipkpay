@@ -323,11 +323,12 @@ export default function ConversationScreen() {
           offset={{ closed: 0, opened: 0 }}
           style={{ backgroundColor: colors.background }}
         >
-        <View style={[styles.inputRow, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 10 }]}>
+        <View style={[styles.inputRow, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 8 }]}>
+
           {/* + attach button */}
           <Pressable
             onPress={() => setAttachOpen(true)}
-            style={[styles.plusButton, { backgroundColor: colors.secondary }]}
+            style={[styles.plusButton, { backgroundColor: "transparent" }]}
           >
             <Plus size={20} color={colors.primary} strokeWidth={2.5} />
           </Pressable>
@@ -337,7 +338,7 @@ export default function ConversationScreen() {
             onChangeText={setText}
             placeholder="Écrivez un message…"
             placeholderTextColor={colors.mutedForeground}
-            style={[styles.input, { backgroundColor: colors.secondary, color: colors.secondaryForeground, opacity: 1 }]}
+            style={[styles.input, { backgroundColor: colors.input, color: colors.secondaryForeground, opacity: 1 }]}
             multiline
             textAlignVertical="top"
             selectionColor={colors.primary}
@@ -460,8 +461,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 8,
     paddingHorizontal: 12,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+    borderTopWidth: 0,
   },
   plusButton: {
     width: 40,
@@ -474,9 +475,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 40,
-    borderRadius: 18,
+    borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     fontFamily: "Inter_400Regular",
     fontSize: 16,
     lineHeight: 21,
@@ -484,8 +485,8 @@ const styles = StyleSheet.create({
     includeFontPadding: true,
   },
   sendButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
