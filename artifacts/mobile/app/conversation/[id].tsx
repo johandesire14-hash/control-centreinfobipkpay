@@ -173,7 +173,7 @@ export default function ConversationScreen() {
             icon: <FileText size={26} color="#FFFFFF" />,
             label: "Créer une facture",
             color: "#1D7159",
-            onPress: () => router.push({ pathname: "/(garage)/invoice" }),
+            onPress: () => router.push({ pathname: "/(garage)/invoice", params: { conversationId: String(conversationId) } }),
           } satisfies AttachItem,
         ]
       : []),

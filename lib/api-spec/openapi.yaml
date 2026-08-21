@@ -1390,6 +1390,9 @@ components:
       type: object
       required: [rating, qualityRating, honestyRating, punctualityRating, valueRating]
       properties:
+        invoiceId:
+          type: string
+          format: uuid
         rating:
           type: integer
           minimum: 1

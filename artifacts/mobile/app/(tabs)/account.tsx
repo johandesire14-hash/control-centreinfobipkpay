@@ -172,7 +172,7 @@ export default function MonEspaceScreen() {
             <Wrench size={20} color="#FFFFFF" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.dashboardTitle}>Passer en mode Garage</Text>
+            <Text style={styles.dashboardTitle}>Passer en mode Pro</Text>
             <Text style={styles.dashboardSubtitle}>
               {myGarage.data?.name ?? "Accéder à votre tableau de bord"}
             </Text>

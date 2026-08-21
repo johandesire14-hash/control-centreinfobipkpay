@@ -16,6 +16,7 @@ import kpayRouter from "./kpay";
 import invoicesRouter from "./invoices";
 import momoRouter from "./momo";
 import phoneAuthRouter from "./phoneAuth";
+import invoicesRouter from "./invoices";
 
 const router: IRouter = Router();
 router.use(healthRouter);
@@ -35,5 +36,6 @@ router.use(invoicesRouter);
 router.use("/kpay", kpayRouter);
 router.use(momoRouter);
 router.use(phoneAuthRouter);
+router.use(invoicesRouter);
 
 export default router;

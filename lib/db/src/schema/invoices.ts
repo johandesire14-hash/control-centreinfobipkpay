@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 import { garagesTable } from "./garages";
+import { conversationsTable } from "./conversations";
 
 export const invoiceStatuses = [
   "issued",
@@ -27,8 +28,12 @@ export const invoicesTable = pgTable("invoices", {
   garageId: integer("garage_id")
     .notNull()
     .references(() => garagesTable.id, { onDelete: "cascade" }),
-  /** Optional client associated with the invoice. */
+  /** Client who requested/received the service. */
   clientId: varchar("client_id").references(() => usersTable.id, {
+    onDelete: "set null",
+  }),
+  /** Conversation/request that originated this invoice. */
+  conversationId: integer("conversation_id").references(() => conversationsTable.id, {
     onDelete: "set null",
   }),
   /** Server-side amount in the smallest currency unit. */

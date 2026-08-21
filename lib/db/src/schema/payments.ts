@@ -44,6 +44,9 @@ export const kpayPaymentsTable = pgTable("kpay_payments", {
   garageId: integer("garage_id").references(() => garagesTable.id, {
     onDelete: "set null",
   }),
+  invoiceId: uuid("invoice_id").references(() => invoicesTable.id, {
+    onDelete: "set null",
+  }),
 
   /** Set when KPay confirms SUCCESS. */
   paidAt: timestamp("paid_at", { withTimezone: true }),
